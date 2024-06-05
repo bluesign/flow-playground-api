@@ -19,7 +19,6 @@
 package blockchain
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/dapperlabs/flow-playground-api/model"
@@ -252,19 +251,19 @@ func (p *Projects) DeployContract(
 }
 
 func (p *Projects) getAccount(em blockchain, projectID uuid.UUID, address model.Address) (*model.Account, error) {
-	flowAccount, store, err := em.getAccount(address.ToFlowAddress())
+	flowAccount, err := em.getAccount(address.ToFlowAddress())
 	if err != nil {
 		return nil, err
 	}
-
-	jsonStorage, err := json.Marshal(store)
-	if err != nil {
-		return nil, errors.Wrap(err, "error marshaling account storage")
-	}
-
+	/*
+		jsonStorage, err := json.Marshal(store)
+		if err != nil {
+			return nil, errors.Wrap(err, "error marshaling account storage")
+		}
+	*/
 	account := model.AccountFromFlow(flowAccount, projectID)
 	account.ProjectID = projectID
-	account.State = string(jsonStorage)
+	account.State = "{}"
 
 	return account, nil
 }

@@ -219,7 +219,7 @@ func Test_LoadEmulator(t *testing.T) {
 		require.NoError(t, err)
 
 		for i := 0; i < 4; i++ {
-			_, _, err := emulator.getAccount(flowsdk.HexToAddress(fmt.Sprintf("0x0%d", i+1)))
+			_, err := emulator.getAccount(flowsdk.HexToAddress(fmt.Sprintf("0x0%d", i+1)))
 			require.NoError(t, err)
 		}
 

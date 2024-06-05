@@ -22,16 +22,17 @@ import (
 	"fmt"
 
 	"github.com/getsentry/sentry-go"
-	"github.com/onflow/cadence"
 	jsoncdc "github.com/onflow/cadence/encoding/json"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/parser"
-	emu "github.com/onflow/flow-emulator"
+	"github.com/onflow/flow-emulator/convert"
+	emu "github.com/onflow/flow-emulator/emulator"
 	"github.com/onflow/flow-emulator/storage/memstore"
 	"github.com/onflow/flow-emulator/types"
 	flowsdk "github.com/onflow/flow-go-sdk"
 	"github.com/onflow/flow-go-sdk/crypto"
 	"github.com/onflow/flow-go-sdk/templates"
+	"github.com/onflow/flow-go/model/flow"
 	"github.com/pkg/errors"
 )
 
@@ -55,7 +56,7 @@ type blockchain interface {
 	createAccount() (*flowsdk.Account, *flowsdk.Transaction, *types.TransactionResult, error)
 
 	// getAccount gets an account by the address and also returns its storage.
-	getAccount(address flowsdk.Address) (*flowsdk.Account, *emu.AccountStorage, error)
+	getAccount(address flowsdk.Address) (*flowsdk.Account, error)
 
 	// deployContract deploys a contract on the provided address and returns transaction and result.
 	deployContract(address flowsdk.Address, script string) (*types.TransactionResult, *flowsdk.Transaction, error)
@@ -71,7 +72,7 @@ type emulator struct {
 }
 
 func newEmulator() (*emulator, error) {
-	blockchain, err := emu.NewBlockchain(
+	blockchain, err := emu.New(
 		emu.WithStore(memstore.New()),
 		emu.WithTransactionValidationEnabled(false),
 		emu.WithSimpleAddresses(),
@@ -138,18 +139,14 @@ func (e *emulator) createAccount() (*flowsdk.Account, *flowsdk.Transaction, *typ
 	return account, tx, result, nil
 }
 
-func (e *emulator) getAccount(address flowsdk.Address) (*flowsdk.Account, *emu.AccountStorage, error) {
-	storage, err := e.blockchain.GetAccountStorage(address)
+func (e *emulator) getAccount(address flowsdk.Address) (*flowsdk.Account, error) {
+	account, err := e.blockchain.GetAccount(flow.ConvertAddress(address))
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-
-	account, err := e.blockchain.GetAccount(address)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return account, storage, nil
+	// todo: add back in storage
+	// 	storage, err := e.blockchain.GetAccountStorage(address)
+	return convert.FlowAccountToSDK(*account)
 }
 
 func (e *emulator) deployContract(
@@ -199,7 +196,8 @@ func (e *emulator) sendTransaction(
 		return nil, nil, errors.Wrap(err, "error signing the envelope")
 	}
 
-	err = e.blockchain.AddTransaction(*tx)
+	t := convert.SDKTransactionToFlow(*tx)
+	err = e.blockchain.AddTransaction(*t)
 	if err != nil {
 		return &types.TransactionResult{
 			Error: err,
@@ -230,10 +228,11 @@ func (e *emulator) getLatestBlockHeight() (int, error) {
 
 // parseEventAddress gets an address out of the account creation events payloads
 func parseEventAddress(events []flowsdk.Event) flowsdk.Address {
+	// todo: get the address from the create account event
 	for _, event := range events {
 		if event.Type == flowsdk.EventAccountCreated {
-			addressValue := event.Value.Fields[0].(cadence.Address)
-			return flowsdk.HexToAddress(addressValue.Hex())
+			accountCreatedEvent := flowsdk.AccountCreatedEvent(event)
+			return accountCreatedEvent.Address()
 		}
 	}
 	return flowsdk.EmptyAddress
