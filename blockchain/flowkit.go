@@ -27,16 +27,16 @@ import (
 	jsoncdc "github.com/onflow/cadence/encoding/json"
 	"github.com/onflow/cadence/runtime/common"
 	"github.com/onflow/cadence/runtime/parser"
-	kit "github.com/onflow/flow-cli/flowkit"
-	"github.com/onflow/flow-cli/flowkit/accounts"
-	"github.com/onflow/flow-cli/flowkit/config"
-	"github.com/onflow/flow-cli/flowkit/gateway"
-	"github.com/onflow/flow-cli/flowkit/output"
-	"github.com/onflow/flow-cli/flowkit/transactions"
 	emu "github.com/onflow/flow-emulator/emulator"
 	"github.com/onflow/flow-emulator/storage/memstore"
 	"github.com/onflow/flow-go-sdk"
 	"github.com/onflow/flow-go-sdk/crypto"
+	kit "github.com/onflow/flowkit"
+	"github.com/onflow/flowkit/accounts"
+	"github.com/onflow/flowkit/config"
+	"github.com/onflow/flowkit/gateway"
+	"github.com/onflow/flowkit/output"
+	"github.com/onflow/flowkit/transactions"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )
@@ -95,7 +95,7 @@ type flowKit struct {
 
 func newFlowkit() (*flowKit, error) {
 	readerWriter := NewInternalReaderWriter()
-	state, err := kit.Init(readerWriter, crypto.ECDSA_P256, crypto.SHA3_256)
+	state, err := kit.Init(readerWriter)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create flow-kit state")
 	}
@@ -534,7 +534,7 @@ func (fk *flowKit) sendTransaction(
 }
 
 func (fk *flowKit) getLatestBlockHeight() (int, error) {
-	block, err := fk.blockchain.Gateway().GetLatestBlock()
+	block, err := fk.blockchain.Gateway().GetLatestBlock(context.Background())
 	if err != nil {
 		return 0, err
 	}

@@ -19,9 +19,10 @@
 package blockchain
 
 import (
+	"io/fs"
 	"os"
 
-	kit "github.com/onflow/flow-cli/flowkit"
+	kit "github.com/onflow/flowkit"
 )
 
 type InternalReaderWriter struct {
@@ -45,4 +46,8 @@ func (rw *InternalReaderWriter) WriteFile(_ string, data []byte, _ os.FileMode) 
 
 func (rw *InternalReaderWriter) MkdirAll(_ string, _ os.FileMode) error {
 	return nil
+}
+
+func (rw *InternalReaderWriter) Stat(_ string) (fs.FileInfo, error) {
+	return nil, nil
 }
