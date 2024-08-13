@@ -22,7 +22,7 @@ import (
 	"io/fs"
 	"os"
 
-	kit "github.com/onflow/flowkit"
+	kit "github.com/onflow/flowkit/v2"
 )
 
 type InternalReaderWriter struct {

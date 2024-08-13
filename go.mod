@@ -23,7 +23,7 @@ require (
 	github.com/onflow/flow-emulator v1.0.0-preview.38
 	github.com/onflow/flow-go v0.37.0-crescendo-RC3.0.20240808013212-1dd0921e5306
 	github.com/onflow/flow-go-sdk v1.0.0-preview.50
-	github.com/onflow/flowkit v1.19.0
+	github.com/onflow/flowkit/v2 v2.0.0-stable-cadence-alpha.27
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0
 	github.com/robfig/cron v1.2.0
