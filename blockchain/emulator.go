@@ -24,7 +24,6 @@ import (
 	"github.com/getsentry/sentry-go"
 	"github.com/onflow/flow-emulator/convert"
 	emu "github.com/onflow/flow-emulator/emulator"
-	"github.com/onflow/flow-emulator/storage/memstore"
 	"github.com/onflow/flow-emulator/types"
 	flowsdk "github.com/onflow/flow-go-sdk"
 	"github.com/onflow/flow-go-sdk/crypto"
@@ -66,23 +65,6 @@ var _ blockchain2 = &emulator{}
 
 type emulator struct {
 	blockchain *emu.Blockchain
-}
-
-func newEmulator() (*emulator, error) {
-	blockchain, err := emu.New(
-		emu.WithStore(memstore.New()),
-		emu.WithTransactionValidationEnabled(false),
-		emu.WithSimpleAddresses(),
-		emu.WithStorageLimitEnabled(false),
-		emu.WithTransactionFeesEnabled(false),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create a new emulator instance")
-	}
-
-	return &emulator{
-		blockchain: blockchain,
-	}, nil
 }
 
 func (e *emulator) executeTransaction(
