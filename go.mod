@@ -2,6 +2,8 @@ module github.com/dapperlabs/flow-playground-api
 
 go 1.22
 
+toolchain go1.22.4
+
 require (
 	github.com/99designs/gqlgen v0.17.5
 	github.com/Masterminds/semver v1.5.0
