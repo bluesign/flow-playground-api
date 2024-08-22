@@ -3,3 +3,4 @@
 e2e-db
 server/server
 test-results.log
+.vscode

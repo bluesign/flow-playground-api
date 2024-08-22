@@ -38,7 +38,6 @@ func EventsFromFlow(flowEvents []flow.Event) ([]Event, error) {
 }
 
 func parseEvent(event flow.Event) (Event, error) {
-	// do events have more than one value, this seemed to have changed from previous version
 	return Event{
 		Type:   event.Type,
 		Values: []string{event.Value.String()},
