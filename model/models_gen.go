@@ -12,11 +12,14 @@ type Event struct {
 	Values []string `json:"values"`
 }
 
+type Mutation struct {
+}
+
 type NewContractDeployment struct {
 	ProjectID uuid.UUID `json:"projectId"`
 	Script    string    `json:"script"`
 	Address   Address   `json:"address"`
-	Arguments []string  `json:"arguments"`
+	Arguments []string  `json:"arguments,omitempty"`
 }
 
 type NewContractTemplate struct {
@@ -32,15 +35,15 @@ type NewFile struct {
 }
 
 type NewProject struct {
-	ParentID             *uuid.UUID                       `json:"parentId"`
+	ParentID             *uuid.UUID                       `json:"parentId,omitempty"`
 	Title                string                           `json:"title"`
 	Description          string                           `json:"description"`
 	Readme               string                           `json:"readme"`
 	Seed                 int                              `json:"seed"`
 	NumberOfAccounts     int                              `json:"numberOfAccounts"`
-	TransactionTemplates []*NewProjectTransactionTemplate `json:"transactionTemplates"`
-	ScriptTemplates      []*NewProjectScriptTemplate      `json:"scriptTemplates"`
-	ContractTemplates    []*NewProjectContractTemplate    `json:"contractTemplates"`
+	TransactionTemplates []*NewProjectTransactionTemplate `json:"transactionTemplates,omitempty"`
+	ScriptTemplates      []*NewProjectScriptTemplate      `json:"scriptTemplates,omitempty"`
+	ContractTemplates    []*NewProjectContractTemplate    `json:"contractTemplates,omitempty"`
 }
 
 type NewProjectContractTemplate struct {
@@ -66,7 +69,7 @@ type NewProjectTransactionTemplate struct {
 type NewScriptExecution struct {
 	ProjectID uuid.UUID `json:"projectId"`
 	Script    string    `json:"script"`
-	Arguments []string  `json:"arguments"`
+	Arguments []string  `json:"arguments,omitempty"`
 }
 
 type NewScriptTemplate struct {
@@ -78,8 +81,8 @@ type NewScriptTemplate struct {
 type NewTransactionExecution struct {
 	ProjectID uuid.UUID `json:"projectId"`
 	Script    string    `json:"script"`
-	Signers   []Address `json:"signers"`
-	Arguments []string  `json:"arguments"`
+	Signers   []Address `json:"signers,omitempty"`
+	Arguments []string  `json:"arguments,omitempty"`
 }
 
 type NewTransactionTemplate struct {
@@ -96,8 +99,8 @@ type PlaygroundInfo struct {
 
 type ProgramError struct {
 	Message       string           `json:"message"`
-	StartPosition *ProgramPosition `json:"startPosition"`
-	EndPosition   *ProgramPosition `json:"endPosition"`
+	StartPosition *ProgramPosition `json:"startPosition,omitempty"`
+	EndPosition   *ProgramPosition `json:"endPosition,omitempty"`
 }
 
 type ProgramPosition struct {
@@ -107,45 +110,48 @@ type ProgramPosition struct {
 }
 
 type ProjectList struct {
-	Projects []*Project `json:"projects"`
+	Projects []*Project `json:"projects,omitempty"`
+}
+
+type Query struct {
 }
 
 type UpdateContractTemplate struct {
 	ID        uuid.UUID `json:"id"`
-	Title     *string   `json:"title"`
+	Title     *string   `json:"title,omitempty"`
 	ProjectID uuid.UUID `json:"projectId"`
-	Index     *int      `json:"index"`
-	Script    *string   `json:"script"`
+	Index     *int      `json:"index,omitempty"`
+	Script    *string   `json:"script,omitempty"`
 }
 
 type UpdateFile struct {
 	ID        uuid.UUID `json:"id"`
-	Title     *string   `json:"title"`
+	Title     *string   `json:"title,omitempty"`
 	ProjectID uuid.UUID `json:"projectId"`
-	Index     *int      `json:"index"`
-	Script    *string   `json:"script"`
+	Index     *int      `json:"index,omitempty"`
+	Script    *string   `json:"script,omitempty"`
 }
 
 type UpdateProject struct {
 	ID          uuid.UUID `json:"id"`
-	Title       *string   `json:"title"`
-	Description *string   `json:"description"`
-	Readme      *string   `json:"readme"`
-	Persist     *bool     `json:"persist"`
+	Title       *string   `json:"title,omitempty"`
+	Description *string   `json:"description,omitempty"`
+	Readme      *string   `json:"readme,omitempty"`
+	Persist     *bool     `json:"persist,omitempty"`
 }
 
 type UpdateScriptTemplate struct {
 	ID        uuid.UUID `json:"id"`
-	Title     *string   `json:"title"`
+	Title     *string   `json:"title,omitempty"`
 	ProjectID uuid.UUID `json:"projectId"`
-	Index     *int      `json:"index"`
-	Script    *string   `json:"script"`
+	Index     *int      `json:"index,omitempty"`
+	Script    *string   `json:"script,omitempty"`
 }
 
 type UpdateTransactionTemplate struct {
 	ID        uuid.UUID `json:"id"`
-	Title     *string   `json:"title"`
+	Title     *string   `json:"title,omitempty"`
 	ProjectID uuid.UUID `json:"projectId"`
-	Index     *int      `json:"index"`
-	Script    *string   `json:"script"`
+	Index     *int      `json:"index,omitempty"`
+	Script    *string   `json:"script,omitempty"`
 }
