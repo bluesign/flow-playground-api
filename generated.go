@@ -135,6 +135,7 @@ type ComplexityRoot struct {
 		Title                 func(childComplexity int) int
 		TransactionExecutions func(childComplexity int) int
 		TransactionTemplates  func(childComplexity int) int
+		UpdatedAt             func(childComplexity int) int
 		Version               func(childComplexity int) int
 	}
 
@@ -206,6 +207,8 @@ type MutationResolver interface {
 	CreateScriptExecution(ctx context.Context, input model.NewScriptExecution) (*model.ScriptExecution, error)
 }
 type ProjectResolver interface {
+	UpdatedAt(ctx context.Context, obj *model.Project) (string, error)
+
 	Accounts(ctx context.Context, obj *model.Project) ([]*model.Account, error)
 	TransactionTemplates(ctx context.Context, obj *model.Project) ([]*model.File, error)
 	TransactionExecutions(ctx context.Context, obj *model.Project) ([]*model.TransactionExecution, error)
@@ -743,6 +746,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Project.TransactionTemplates(childComplexity), true
+
+	case "Project.updatedAt":
+		if e.complexity.Project.UpdatedAt == nil {
+			break
+		}
+
+		return e.complexity.Project.UpdatedAt(childComplexity), true
 
 	case "Project.version":
 		if e.complexity.Project.Version == nil {
@@ -2429,6 +2439,8 @@ func (ec *executionContext) fieldContext_Mutation_createProject(ctx context.Cont
 				return ec.fieldContext_Project_version(ctx, field)
 			case "persist":
 				return ec.fieldContext_Project_persist(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Project_updatedAt(ctx, field)
 			case "mutable":
 				return ec.fieldContext_Project_mutable(ctx, field)
 			case "numberOfAccounts":
@@ -2522,6 +2534,8 @@ func (ec *executionContext) fieldContext_Mutation_updateProject(ctx context.Cont
 				return ec.fieldContext_Project_version(ctx, field)
 			case "persist":
 				return ec.fieldContext_Project_persist(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Project_updatedAt(ctx, field)
 			case "mutable":
 				return ec.fieldContext_Project_mutable(ctx, field)
 			case "numberOfAccounts":
@@ -4225,6 +4239,50 @@ func (ec *executionContext) fieldContext_Project_persist(ctx context.Context, fi
 	return fc, nil
 }
 
+func (ec *executionContext) _Project_updatedAt(ctx context.Context, field graphql.CollectedField, obj *model.Project) (ret graphql.Marshaler) {
+	fc, err := ec.fieldContext_Project_updatedAt(ctx, field)
+	if err != nil {
+		return graphql.Null
+	}
+	ctx = graphql.WithFieldContext(ctx, fc)
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Project().UpdatedAt(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) fieldContext_Project_updatedAt(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Project",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return nil, errors.New("field of type String does not have child fields")
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Project_mutable(ctx context.Context, field graphql.CollectedField, obj *model.Project) (ret graphql.Marshaler) {
 	fc, err := ec.fieldContext_Project_mutable(ctx, field)
 	if err != nil {
@@ -4739,6 +4797,8 @@ func (ec *executionContext) fieldContext_ProjectList_projects(ctx context.Contex
 				return ec.fieldContext_Project_version(ctx, field)
 			case "persist":
 				return ec.fieldContext_Project_persist(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Project_updatedAt(ctx, field)
 			case "mutable":
 				return ec.fieldContext_Project_mutable(ctx, field)
 			case "numberOfAccounts":
@@ -4921,6 +4981,8 @@ func (ec *executionContext) fieldContext_Query_project(ctx context.Context, fiel
 				return ec.fieldContext_Project_version(ctx, field)
 			case "persist":
 				return ec.fieldContext_Project_persist(ctx, field)
+			case "updatedAt":
+				return ec.fieldContext_Project_updatedAt(ctx, field)
 			case "mutable":
 				return ec.fieldContext_Project_mutable(ctx, field)
 			case "numberOfAccounts":
@@ -9459,6 +9521,42 @@ func (ec *executionContext) _Project(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "persist":
 			out.Values[i] = ec._Project_persist(ctx, field, obj)
+		case "updatedAt":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Project_updatedAt(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.Deferrable != nil {
+				dfs, ok := deferred[field.Deferrable.Label]
+				di := 0
+				if ok {
+					dfs.AddField(field)
+					di = len(dfs.Values) - 1
+				} else {
+					dfs = graphql.NewFieldSet([]graphql.CollectedField{field})
+					deferred[field.Deferrable.Label] = dfs
+				}
+				dfs.Concurrently(di, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, dfs)
+				})
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "mutable":
 			out.Values[i] = ec._Project_mutable(ctx, field, obj)
 		case "numberOfAccounts":
