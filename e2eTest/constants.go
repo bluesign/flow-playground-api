@@ -19,7 +19,7 @@
 package e2eTest
 
 import (
-	"github.com/dapperlabs/flow-playground-api/model"
+	"github.com/onflow/flow-playground-api/model"
 )
 
 const initAccounts = 5

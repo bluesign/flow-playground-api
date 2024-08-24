@@ -22,7 +22,6 @@ import (
 	"context"
 	"fmt"
 
-	userErr "github.com/dapperlabs/flow-playground-api/middleware/errors"
 	"github.com/onflow/cadence"
 	jsoncdc "github.com/onflow/cadence/encoding/json"
 	"github.com/onflow/cadence/runtime/common"
@@ -37,6 +36,7 @@ import (
 	"github.com/onflow/flow-emulator/storage/memstore"
 	"github.com/onflow/flow-go-sdk"
 	"github.com/onflow/flow-go-sdk/crypto"
+	userErr "github.com/onflow/flow-playground-api/middleware/errors"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 )

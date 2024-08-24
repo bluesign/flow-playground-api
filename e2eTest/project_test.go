@@ -23,9 +23,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dapperlabs/flow-playground-api/e2eTest/client"
-	"github.com/dapperlabs/flow-playground-api/model"
 	"github.com/google/uuid"
+	"github.com/onflow/flow-playground-api/e2eTest/client"
+	"github.com/onflow/flow-playground-api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

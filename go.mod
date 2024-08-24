@@ -1,4 +1,4 @@
-module github.com/dapperlabs/flow-playground-api
+module github.com/onflow/flow-playground-api
 
 go 1.20
 
