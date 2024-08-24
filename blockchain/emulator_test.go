@@ -80,7 +80,7 @@ func Test_DeployContracts(t *testing.T) {
 
 		for i := 0; i < numContracts; i++ {
 			name := baseName + strconv.Itoa(i)
-			contract := "pub contract " + name + "{}"
+			contract := "access(all) contract " + name + "{}"
 			deployedContracts = append(deployedContracts, name)
 
 			_, tx, err := emu.deployContract(account.Address, contract)
@@ -121,13 +121,13 @@ func Test_ParseContractName(t *testing.T) {
 	longName := "foo" + strings.Repeat("long", 100000)
 
 	tests := []testCase{
-		{"pub contract foo {}", "foo", false},
-		{"pub contract " + longName + " {}", longName, false},
-		{"pub contract foo_bar {}", "foo_bar", false},
-		{"pub contract foo bar {}", "", true},
-		{"pub contract {}", "", true},
-		{"pub contract 123foo {}", "", true},
-		{"pub contract foo! {}", "", true},
+		{"access(all) contract foo {}", "foo", false},
+		{"access(all) contract " + longName + " {}", longName, false},
+		{"access(all) contract foo_bar {}", "foo_bar", false},
+		{"access(all) contract foo bar {}", "", true},
+		{"access(all) contract {}", "", true},
+		{"access(all) contract 123foo {}", "", true},
+		{"access(all) contract foo! {}", "", true},
 	}
 
 	for _, tc := range tests {

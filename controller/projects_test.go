@@ -187,20 +187,20 @@ func Test_CreateProject(t *testing.T) {
 func Test_StateRecreation(t *testing.T) {
 	_, user, _, projects, transactions, _, accounts := createControllers()
 
-	contract1 := `pub contract HelloWorld { 
+	contract1 := `access(all) contract HelloWorld { 
 		init() {
 			log("hello")
 		} 
 	}`
 
 	tx1 := `transaction {
-		prepare(auth: AuthAccount) {}
+		prepare(auth: &Account) {}
 		execute {
 			log("hello tx")		
 		}
 	}`
 
-	script1 := `pub fun main(): Int {
+	script1 := `access(all) fun main(): Int {
 		return 42;
 	}`
 
@@ -261,7 +261,7 @@ func Test_StateRecreation(t *testing.T) {
 	require.NoError(t, err)
 	for i, rAcc := range allAccs {
 		assert.Equal(t, // asserting that account addresses are ordered
-			flow.HexToAddress(fmt.Sprintf("0x0%d", i+5)).String(),
+			flow.HexToAddress(fmt.Sprintf("0x0%x", i+6)).String(),
 			rAcc.Address.ToFlowAddress().String(),
 		)
 		if rAcc.ID == redeployAcc.ID {
@@ -272,9 +272,9 @@ func Test_StateRecreation(t *testing.T) {
 		}
 	}
 
-	tx2 := `import HelloWorld from 0x05
+	tx2 := `import HelloWorld from 0x06
 		transaction {
-			prepare(auth: AuthAccount) {}
+			prepare(acc: &Account) {}
 			execute {}
 		}`
 

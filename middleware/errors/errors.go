@@ -66,6 +66,7 @@ func Middleware(entry *logrus.Entry, localHub *sentry.Hub) graphql.ResponseMiddl
 		errList := graphql.GetErrors(ctx)
 
 		for i, err := range errList {
+			fmt.Println(err)
 			contextEntry := entry.
 				WithFields(debugFields)
 

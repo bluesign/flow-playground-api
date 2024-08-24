@@ -137,7 +137,7 @@ func migrateTest(startVersion *semver.Version, f func(t *testing.T, c migrateTes
 
 func assertAllAccountsExist(t *testing.T, scripts *controller.Scripts, proj *model.Project) {
 	for i := 1; i <= numAccounts; i++ {
-		script := fmt.Sprintf(`pub fun main() { getAccount(0x%x) }`, i)
+		script := fmt.Sprintf(`access(all) fun main() { getAccount(0x%x) }`, i)
 
 		result, err := scripts.CreateExecution(model.NewScriptExecution{
 			ProjectID: proj.ID,
@@ -203,7 +203,7 @@ func Test_MigrationV0_12_0(t *testing.T) {
 
 	accTmpl := `
 		import A%d from 0x0%d
-		pub contract B {}`
+		access(all) contract B {}`
 
 	for i := 0; i < 5; i++ {
 		err = store.InsertAccount(&model.Account{
@@ -242,8 +242,8 @@ func Test_MigrationV0_12_0(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, accs, 5)
 	for i, a := range accs {
-		assert.Equal(t, model.NewAddressFromString(fmt.Sprintf("0x0%d", i+5)), a.Address) // assert address was shifted
-		assert.Equal(t, fmt.Sprintf(accTmpl, i, i+5), a.DraftCode)                        // assert code script was shifted
+		assert.Equal(t, model.NewAddressFromString(fmt.Sprintf("0x0%x", i+6)), a.Address) // assert address was shifted
+		assert.Equal(t, fmt.Sprintf(accTmpl, i, i+6), a.DraftCode)                        // assert code script was shifted
 	}
 
 	var exes []*model.TransactionExecution
@@ -251,7 +251,7 @@ func Test_MigrationV0_12_0(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, exes, 5)
 	for i, exe := range exes {
-		assert.Equal(t, "flow.AccountCreated", exe.Events[5].Type)
+		assert.Equal(t, "flow.AccountCreated", exe.Events[9].Type)
 		assert.Equal(t, i, exes[i].Index)
 	}
 

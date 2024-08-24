@@ -34,7 +34,7 @@ import (
 // todo temp workaround to prevent API breaking changes, remove this in the v2.
 // We can avoid doing translations of address in the next version of playground we can start the address space at 0x0a.
 
-const numberOfServiceAccounts = 4
+const numberOfServiceAccounts = 5
 const addressLength = 8
 
 // ContentAddressFromAPI converts addresses found in content from the user input.

@@ -19,7 +19,6 @@
 package playground_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -500,7 +499,7 @@ func TestReplicas(t *testing.T) {
 	})
 
 	t.Run("Re-deploy contracts on multiple replicas to initial accounts", func(t *testing.T) {
-		var contract = "pub contract Foo {}"
+		var contract = "access(all) contract Foo {}"
 
 		for i := 0; i < 10; i++ {
 			accountIdx := i % len(project.Accounts)
@@ -549,7 +548,7 @@ func TestReplicas(t *testing.T) {
 			require.Equal(t, prevDeployedCode, respA.Account.DeployedCode)
 
 			contractNumber := strconv.Itoa(i)
-			var contract = "pub contract Foo" + contractNumber + " {}"
+			var contract = "access(all) contract Foo" + contractNumber + " {}"
 
 			var respB UpdateAccountResponse
 			err = c.Post(
@@ -606,8 +605,8 @@ func TestProjects(t *testing.T) {
 		var resp CreateProjectResponse
 
 		accounts := []string{
-			"pub contract Foo {}",
-			"pub contract Bar {}",
+			"access(all) contract Foo {}",
+			"access(all) contract Bar {}",
 		}
 
 		err := c.Post(
@@ -639,10 +638,10 @@ func TestProjects(t *testing.T) {
 		var resp CreateProjectResponse
 
 		accounts := []string{
-			"pub contract Foo {}",
-			"pub contract Bar {}",
-			"pub contract Dog {}",
-			"pub contract Cat {}",
+			"access(all) contract Foo {}",
+			"access(all) contract Bar {}",
+			"access(all) contract Dog {}",
+			"access(all) contract Cat {}",
 		}
 
 		err := c.Post(
@@ -1133,7 +1132,7 @@ func TestTransactionExecutions(t *testing.T) {
 
 		var respA CreateTransactionExecutionResponse
 
-		const script = "transaction { prepare(signer: AuthAccount) { AuthAccount(payer: signer) } }"
+		const script = "transaction { prepare(signer: auth(Storage) &Account) { Account(payer: signer) } }"
 
 		err := c.Post(
 			MutationCreateTransactionExecution,
@@ -1146,16 +1145,17 @@ func TestTransactionExecutions(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Empty(t, respA.CreateTransactionExecution.Errors)
-		require.Len(t, respA.CreateTransactionExecution.Events, 6)
+		require.Len(t, respA.CreateTransactionExecution.Events, 10)
 
-		eventA := respA.CreateTransactionExecution.Events[5]
+		eventA := respA.CreateTransactionExecution.Events[9]
 
 		// first account should have address 0x0a
 		assert.Equal(t, "flow.AccountCreated", eventA.Type)
-		assert.JSONEq(t,
+		assert.Equal(t, "flow.AccountCreated(address: 0x000000000000000b)", eventA.Values[0])
+		/*assert.JSONEq(t,
 			`{"type":"Address","value":"0x000000000000000a"}`,
 			eventA.Values[0],
-		)
+		)*/
 
 		var respB CreateTransactionExecutionResponse
 
@@ -1170,16 +1170,17 @@ func TestTransactionExecutions(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Empty(t, respB.CreateTransactionExecution.Errors)
-		require.Len(t, respB.CreateTransactionExecution.Events, 6)
+		require.Len(t, respB.CreateTransactionExecution.Events, 10)
 
-		eventB := respB.CreateTransactionExecution.Events[5]
+		eventB := respB.CreateTransactionExecution.Events[9]
 
 		// second account should have address 0x07
 		assert.Equal(t, "flow.AccountCreated", eventB.Type)
-		assert.JSONEq(t,
+		assert.Equal(t, "flow.AccountCreated(address: 0x000000000000000c)", eventB.Values[0])
+		/*assert.JSONEq(t,
 			`{"type":"Address","value":"0x000000000000000b"}`,
 			eventB.Values[0],
-		)
+		)*/
 	})
 
 	t.Run("Multiple executions with reset", func(t *testing.T) {
@@ -1189,7 +1190,7 @@ func TestTransactionExecutions(t *testing.T) {
 
 		var respA CreateTransactionExecutionResponse
 
-		const script = "transaction { prepare(signer: AuthAccount) { AuthAccount(payer: signer) } }"
+		const script = "transaction { prepare(signer: auth(Storage) &Account) { Account(payer: signer) } }"
 
 		err := c.Post(
 			MutationCreateTransactionExecution,
@@ -1202,16 +1203,17 @@ func TestTransactionExecutions(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Empty(t, respA.CreateTransactionExecution.Errors)
-		require.Len(t, respA.CreateTransactionExecution.Events, 6)
+		require.Len(t, respA.CreateTransactionExecution.Events, 10)
 
-		eventA := respA.CreateTransactionExecution.Events[5]
+		eventA := respA.CreateTransactionExecution.Events[9]
 
 		// first account should have address 0x0a
 		assert.Equal(t, "flow.AccountCreated", eventA.Type)
-		assert.JSONEq(t,
+		assert.Equal(t, "flow.AccountCreated(address: 0x000000000000000b)", eventA.Values[0])
+		/*assert.JSONEq(t,
 			`{"type":"Address","value":"0x000000000000000a"}`,
 			eventA.Values[0],
-		)
+		)*/
 
 		_, err = c.projects.Reset(&model.Project{
 			ID: uuid.MustParse(project.ID),
@@ -1230,16 +1232,17 @@ func TestTransactionExecutions(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		require.Len(t, respB.CreateTransactionExecution.Events, 6)
+		require.Len(t, respB.CreateTransactionExecution.Events, 10)
 
-		eventB := respB.CreateTransactionExecution.Events[5]
+		eventB := respB.CreateTransactionExecution.Events[9]
 
 		// second account should have address 0x0a again due to reset
 		assert.Equal(t, "flow.AccountCreated", eventB.Type)
-		assert.JSONEq(t,
+		assert.Equal(t, "flow.AccountCreated(address: 0x000000000000000b)", eventB.Values[0])
+		/*assert.JSONEq(t,
 			`{"type":"Address","value":"0x000000000000000a"}`,
 			eventB.Values[0],
-		)
+		)*/
 	})
 
 	t.Run("invalid (parse error)", func(t *testing.T) {
@@ -1376,7 +1379,7 @@ func TestTransactionExecutions(t *testing.T) {
           transaction {
               execute {
                   var i = 0
-                  while i < 1_000_000 {
+                  while i < 1_000_000_000 {
                       i = i + 1
                   }
               }
@@ -1856,7 +1859,7 @@ func TestAccounts(t *testing.T) {
 
 		var resp UpdateAccountResponse
 
-		const contract = "pub contract Foo {}"
+		const contract = "access(all) contract Foo {}"
 
 		err := c.Post(
 			MutationUpdateAccountDeployedCode,
@@ -1890,7 +1893,7 @@ func TestAccounts(t *testing.T) {
 
 		var respB UpdateAccountResponse
 
-		const contract = "pub contract Foo {}"
+		const contract = "access(all) contract Foo {}"
 
 		err = c.Post(
 			MutationUpdateAccountDeployedCode,
@@ -1927,7 +1930,7 @@ func TestAccounts(t *testing.T) {
 
 		var respB UpdateAccountResponse
 
-		const contract = "pub contract Foo {}"
+		const contract = "access(all) contract Foo {}"
 
 		err = c.Post(
 			MutationUpdateAccountDeployedCode,
@@ -1944,7 +1947,7 @@ func TestAccounts(t *testing.T) {
 
 		var respC UpdateAccountResponse
 
-		const contract2 = "pub contract Bar {}"
+		const contract2 = "access(all) contract Bar {}"
 
 		err = c.Post(
 			MutationUpdateAccountDeployedCode,
@@ -1996,24 +1999,24 @@ func TestAccounts(t *testing.T) {
 }
 
 const counterContract = `
-  pub contract Counting {
+  access(all) contract Counting {
 
-      pub event CountIncremented(count: Int)
+      access(all) event CountIncremented(count: Int)
 
-      pub resource Counter {
-          pub var count: Int
+      access(all) resource Counter {
+      		access(all) var count: Int
 
           init() {
               self.count = 0
           }
 
-          pub fun add(_ count: Int) {
+          access(all) fun add(_ count: Int) {
               self.count = self.count + count
               emit CountIncremented(count: self.count)
           }
       }
 
-      pub fun createCounter(): @Counter {
+      access(all) fun createCounter(): @Counter {
           return <-create Counter()
       }
   }
@@ -2028,12 +2031,12 @@ func generateAddTwoToCounterScript(counterAddress string) string {
 
             transaction {
 
-                prepare(signer: AuthAccount) {
-                    if signer.borrow<&Counting.Counter>(from: /storage/counter) == nil {
-                        signer.save(<-Counting.createCounter(), to: /storage/counter)
+                prepare(signer: auth(Storage) &Account) {
+                    if signer.storage.borrow<&Counting.Counter>(from: /storage/counter) == nil {
+                        signer.storage.save(<-Counting.createCounter(), to: /storage/counter)
                     }
 
-                    signer.borrow<&Counting.Counter>(from: /storage/counter)!.add(2)
+                    signer.storage.borrow<&Counting.Counter>(from: /storage/counter)!.add(2)
                 }
             }
         `,
@@ -2089,15 +2092,15 @@ func TestContractImport(t *testing.T) {
 	accountB := project.Accounts[1]
 
 	contractA := `
-	pub contract HelloWorldA {
-		pub var A: String
-		pub init() { self.A = "HelloWorldA" }
+	access(all) contract HelloWorldA {
+		access(all) var A: String
+		access(all) init() { self.A = "HelloWorldA" }
 	}`
 
 	contractB := `
 	import HelloWorldA from 0x01
-	pub contract HelloWorldB {
-		pub init() {
+	access(all) contract HelloWorldB {
+		access(all) init() {
 			log(HelloWorldA.A)
 		}
 	}`
@@ -2128,76 +2131,78 @@ func TestContractImport(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestAccountStorage(t *testing.T) {
-	c := newClient()
+//TODO: convert test to capabilities
+/*
+	func TestAccountStorage(t *testing.T) {
+		c := newClient()
 
-	project := createProject(t, c)
-	account := project.Accounts[0]
+		project := createProject(t, c)
+		account := project.Accounts[0]
 
-	var accResp GetAccountResponse
+		var accResp GetAccountResponse
 
-	err := c.Post(
-		QueryGetAccount,
-		&accResp,
-		client.Var("projectId", project.ID),
-		client.Var("accountId", account.ID),
-	)
-	require.NoError(t, err)
+		err := c.Post(
+			QueryGetAccount,
+			&accResp,
+			client.Var("projectId", project.ID),
+			client.Var("accountId", account.ID),
+		)
+		require.NoError(t, err)
 
-	assert.Equal(t, account.ID, accResp.Account.ID)
-	assert.Equal(t, `{}`, accResp.Account.State)
+		assert.Equal(t, account.ID, accResp.Account.ID)
+		assert.Equal(t, `{}`, accResp.Account.State)
 
-	var resp CreateTransactionExecutionResponse
+		var resp CreateTransactionExecutionResponse
 
-	const script = `
-		transaction {
-		  prepare(signer: AuthAccount) {
-			  	signer.save("storage value", to: /storage/storageTest)
- 				signer.link<&String>(/public/publicTest, target: /storage/storageTest)
-				signer.link<&String>(/private/privateTest, target: /storage/storageTest)
-		  }
-   		}`
+		const script = `
+			transaction {
+			  prepare(signer: auth(Storage) &Acccount) {
+				  	signer.save("storage value", to: /storage/storageTest)
+	 				signer.link<&String>(/public/publicTest, target: /storage/storageTest)
+					signer.link<&String>(/private/privateTest, target: /storage/storageTest)
+			  }
+	   		}`
 
-	err = c.Post(
-		MutationCreateTransactionExecution,
-		&resp,
-		client.Var("projectId", project.ID),
-		client.Var("script", script),
-		client.Var("signers", []string{account.Address}),
-		client.AddCookie(c.SessionCookie()),
-	)
-	require.NoError(t, err)
+		err = c.Post(
+			MutationCreateTransactionExecution,
+			&resp,
+			client.Var("projectId", project.ID),
+			client.Var("script", script),
+			client.Var("signers", []string{account.Address}),
+			client.AddCookie(c.SessionCookie()),
+		)
+		require.NoError(t, err)
 
-	err = c.Post(
-		QueryGetAccount,
-		&accResp,
-		client.Var("projectId", project.ID),
-		client.Var("accountId", account.ID),
-	)
-	require.NoError(t, err)
+		err = c.Post(
+			QueryGetAccount,
+			&accResp,
+			client.Var("projectId", project.ID),
+			client.Var("accountId", account.ID),
+		)
+		require.NoError(t, err)
 
-	assert.Equal(t, account.ID, accResp.Account.ID)
-	assert.NotEmpty(t, accResp.Account.State)
+		assert.Equal(t, account.ID, accResp.Account.ID)
+		assert.NotEmpty(t, accResp.Account.State)
 
-	type accountStorage struct {
-		Private map[string]any
-		Public  map[string]any
-		Storage map[string]any
+		type accountStorage struct {
+			Private map[string]any
+			Public  map[string]any
+			Storage map[string]any
+		}
+
+		var accStorage accountStorage
+		err = json.Unmarshal([]byte(accResp.Account.State), &accStorage)
+		require.NoError(t, err)
+
+		assert.Equal(t, "storage value", accStorage.Storage["storageTest"])
+		assert.NotEmpty(t, accStorage.Private["privateTest"])
+		assert.NotEmpty(t, accStorage.Public["publicTest"])
+
+		assert.NotContains(t, accStorage.Public, "flowTokenBalance")
+		assert.NotContains(t, accStorage.Public, "flowTokenReceiver")
+		assert.NotContains(t, accStorage.Storage, "flowTokenVault")
 	}
-
-	var accStorage accountStorage
-	err = json.Unmarshal([]byte(accResp.Account.State), &accStorage)
-	require.NoError(t, err)
-
-	assert.Equal(t, "storage value", accStorage.Storage["storageTest"])
-	assert.NotEmpty(t, accStorage.Private["privateTest"])
-	assert.NotEmpty(t, accStorage.Public["publicTest"])
-
-	assert.NotContains(t, accStorage.Public, "flowTokenBalance")
-	assert.NotContains(t, accStorage.Public, "flowTokenReceiver")
-	assert.NotContains(t, accStorage.Storage, "flowTokenVault")
-}
-
+*/
 func TestAuthentication(t *testing.T) {
 	t.Run("Migrate legacy auth", func(t *testing.T) {
 		c := newClient()
@@ -2370,7 +2375,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main() { }"
+		const script = "access(all) fun main() { }"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
@@ -2392,7 +2397,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main() {"
+		const script = "access(all) fun main() {"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
@@ -2409,14 +2414,14 @@ func TestScriptExecutions(t *testing.T) {
 				{
 					Message: "expected token '}'",
 					StartPosition: &model.ProgramPosition{
-						Offset: 16,
+						Offset: 24,
 						Line:   1,
-						Column: 16,
+						Column: 24,
 					},
 					EndPosition: &model.ProgramPosition{
-						Offset: 16,
+						Offset: 24,
 						Line:   1,
-						Column: 16,
+						Column: 24,
 					},
 				},
 			},
@@ -2432,7 +2437,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main() { XYZ }"
+		const script = "access(all) fun main() { XYZ }"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
@@ -2449,14 +2454,14 @@ func TestScriptExecutions(t *testing.T) {
 				{
 					Message: "cannot find variable in this scope: `XYZ`",
 					StartPosition: &model.ProgramPosition{
-						Offset: 17,
+						Offset: 25,
 						Line:   1,
-						Column: 17,
+						Column: 25,
 					},
 					EndPosition: &model.ProgramPosition{
-						Offset: 19,
+						Offset: 27,
 						Line:   1,
-						Column: 19,
+						Column: 27,
 					},
 				},
 			},
@@ -2472,7 +2477,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main() { panic(\"oh no\") }"
+		const script = "access(all) fun main() { panic(\"oh no\") }"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
@@ -2489,14 +2494,14 @@ func TestScriptExecutions(t *testing.T) {
 				{
 					Message: "panic: oh no",
 					StartPosition: &model.ProgramPosition{
-						Offset: 17,
+						Offset: 25,
 						Line:   1,
-						Column: 17,
+						Column: 25,
 					},
 					EndPosition: &model.ProgramPosition{
-						Offset: 30,
+						Offset: 38,
 						Line:   1,
-						Column: 30,
+						Column: 38,
 					},
 				},
 			},
@@ -2513,10 +2518,8 @@ func TestScriptExecutions(t *testing.T) {
 		var resp CreateScriptExecutionResponse
 
 		const script = `
-          pub fun main() {
-              var i = 0
-              while i < 1_000_000 {
-                  i = i + 1
+          access(all) fun main() {
+              while true{
               }
           }
         `
@@ -2531,19 +2534,20 @@ func TestScriptExecutions(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, script, resp.CreateScriptExecution.Script)
+		fmt.Println(resp.CreateScriptExecution.Errors)
 		require.Equal(t,
 			[]model.ProgramError{
 				{
 					Message: "[Error Code: 1110] computation exceeds limit (100000)",
 					StartPosition: &model.ProgramPosition{
-						Offset: 106,
-						Line:   5,
-						Column: 18,
+						Offset: 50,
+						Line:   3,
+						Column: 14,
 					},
 					EndPosition: &model.ProgramPosition{
-						Offset: 114,
-						Line:   5,
-						Column: 26,
+						Offset: 76,
+						Line:   4,
+						Column: 14,
 					},
 				},
 			},
@@ -2559,7 +2563,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main(): Address { return 0x1 as Address }"
+		const script = "access(all) fun main(): Address { return 0x1 as Address }"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
@@ -2586,7 +2590,7 @@ func TestScriptExecutions(t *testing.T) {
 
 		var resp CreateScriptExecutionResponse
 
-		const script = "pub fun main(a: Int): Int { return a + 1 }"
+		const script = "access(all) fun main(a: Int): Int { return a + 1 }"
 
 		err := c.Post(
 			MutationCreateScriptExecution,
