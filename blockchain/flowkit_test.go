@@ -97,11 +97,11 @@ func Test_FlowJsonExport(t *testing.T) {
 	assert.Contains(t, flowJson, Networks)
 
 	// Accounts
-	assert.Contains(t, flowJson, "Account 0x05")
 	assert.Contains(t, flowJson, "Account 0x06")
 	assert.Contains(t, flowJson, "Account 0x07")
 	assert.Contains(t, flowJson, "Account 0x08")
 	assert.Contains(t, flowJson, "Account 0x09")
+	assert.Contains(t, flowJson, "Account 0x0a")
 	assert.Contains(t, flowJson, "Service Account")
 	assert.Contains(t, flowJson, "emulator-account")
 }

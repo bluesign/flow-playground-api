@@ -320,20 +320,20 @@ func Test_StaleProjects(t *testing.T) {
 func Test_StateRecreation(t *testing.T) {
 	_, user, _, projects, files, accounts := createControllers()
 
-	contract1 := `pub contract HelloWorld { 
+	contract1 := `access(all) contract HelloWorld { 
 		init() {
 			log("hello")
 		} 
 	}`
 
 	tx1 := `transaction {
-		prepare(auth: AuthAccount) {}
+		prepare(auth: &Account) {}
 		execute {
 			log("hello tx")		
 		}
 	}`
 
-	script1 := `pub fun main(): Int {
+	script1 := `access(all) fun main(): Int {
 		return 42;
 	}`
 

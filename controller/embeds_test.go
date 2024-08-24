@@ -122,7 +122,7 @@ func TestEmbedsHandler_ServeHTTP(t *testing.T) {
 	require.NoError(t, projErr)
 
 	script := `
-	pub fun main(): Int {
+	access(all) fun main(): Int {
 	  return 42
 	}
 	`

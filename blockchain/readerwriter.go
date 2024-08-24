@@ -46,7 +46,10 @@ func (rw *InternalReaderWriter) ReadFile(path string) ([]byte, error) {
 	"contracts": {
 	},
 	"networks": {
-		"emulator": "127.0.0.1:3569"
+		"emulator": "127.0.0.1:3569",
+		"mainnet": "access.mainnet.nodes.onflow.org:9000",
+		"testing": "127.0.0.1:3569",
+		"testnet": "access.devnet.nodes.onflow.org:9000"
 	},
 	"accounts": {
 		"emulator-account": {

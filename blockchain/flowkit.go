@@ -212,7 +212,7 @@ func (fk *flowKit) bootstrapContracts() error {
 
 		state.Deployments().AddOrUpdate(config.Deployment{
 			Network:   config.EmulatorNetwork.Name,
-			Account:   fmt.Sprintf("Emulator Account 0x%d", i),
+			Account:   fmt.Sprintf("Emulator Account 0x%x", i),
 			Contracts: emulatorContracts,
 		})
 	}
@@ -393,7 +393,7 @@ func (fk *flowKit) createAccount() (*flow.Account, error) {
 		return nil, err
 	}
 
-	name := fmt.Sprintf("Account 0x0%d", len(state.Accounts().Names())-1)
+	name := fmt.Sprintf("Account 0x0%x", len(state.Accounts().Names()))
 
 	state.Accounts().AddOrUpdate(&accounts.Account{
 		Name:    name,
