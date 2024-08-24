@@ -20,9 +20,9 @@ package blockchain
 
 import (
 	"context"
+	"github.com/onflow/flowkit/v2/accounts"
 	"testing"
 
-	"github.com/onflow/flow-cli/flowkit/accounts"
 	"github.com/onflow/flow-go-sdk"
 	"github.com/stretchr/testify/assert"
 )

@@ -19,13 +19,20 @@
 package blockchain
 
 import (
+	"fmt"
 	"os"
 
-	kit "github.com/onflow/flow-cli/flowkit"
+	kit "github.com/onflow/flowkit/v2"
 )
 
 type InternalReaderWriter struct {
 	data []byte
+}
+
+func (rw *InternalReaderWriter) Stat(path string) (os.FileInfo, error) {
+	//TODO implement me
+	fmt.Println("Stat:", path)
+	panic("implement me")
 }
 
 var _ kit.ReaderWriter = &InternalReaderWriter{}
@@ -34,11 +41,33 @@ func NewInternalReaderWriter() *InternalReaderWriter {
 	return &InternalReaderWriter{}
 }
 
-func (rw *InternalReaderWriter) ReadFile(_ string) ([]byte, error) {
+func (rw *InternalReaderWriter) ReadFile(path string) ([]byte, error) {
+	if path == "emulator-account.pkey" {
+		return []byte("0x0d866eb285a9bdb29730a1ca37bd7201fb5bd1a922632b1d5a784b6bc3c216b9"), nil
+	}
+
+	if path == "flow.json" {
+		return []byte(`
+{
+	"contracts": {
+	},
+	"networks": {
+		"emulator": "127.0.0.1:3569"
+	},
+	"accounts": {
+		"emulator-account": {
+			"address": "0000000000000001",
+			"key": "0x0d866eb285a9bdb29730a1ca37bd7201fb5bd1a922632b1d5a784b6bc3c216b9"
+		}
+	}
+}`), nil
+	}
+	fmt.Println(path)
 	return rw.data, nil
 }
 
 func (rw *InternalReaderWriter) WriteFile(_ string, data []byte, _ os.FileMode) error {
+	fmt.Println("WriteFile:", string(data))
 	rw.data = data
 	return nil
 }
