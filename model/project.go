@@ -19,9 +19,8 @@
 package model
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
+	"time"
 
 	"github.com/Masterminds/semver"
 	"github.com/google/uuid"
@@ -37,10 +36,12 @@ type Project struct {
 	Description               string
 	Readme                    string
 	Seed                      int
+	NumberOfAccounts          int
 	TransactionExecutionCount int
 	Persist                   bool
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
+	AccessedAt                time.Time
 	Version                   *semver.Version `gorm:"serializer:json"`
 	Mutable                   bool            // todo don't persist this
 }
@@ -53,16 +54,18 @@ func (p *Project) IsOwnedBy(userID uuid.UUID) bool {
 // and marks it as mutable.
 func (p *Project) ExportPublicMutable() *Project {
 	return &Project{
-		ID:          p.ID,
-		Title:       p.Title,
-		Description: p.Description,
-		Readme:      p.Readme,
-		PublicID:    p.PublicID,
-		ParentID:    p.ParentID,
-		Persist:     p.Persist,
-		Seed:        p.Seed,
-		Version:     p.Version,
-		Mutable:     true,
+		ID:               p.ID,
+		Title:            p.Title,
+		Description:      p.Description,
+		Readme:           p.Readme,
+		PublicID:         p.PublicID,
+		ParentID:         p.ParentID,
+		Persist:          p.Persist,
+		Seed:             p.Seed,
+		NumberOfAccounts: p.NumberOfAccounts,
+		Version:          p.Version,
+		UpdatedAt:        p.UpdatedAt,
+		Mutable:          true,
 	}
 }
 
@@ -70,16 +73,18 @@ func (p *Project) ExportPublicMutable() *Project {
 // and marks it as immutable.
 func (p *Project) ExportPublicImmutable() *Project {
 	return &Project{
-		ID:          p.ID,
-		Title:       p.Title,
-		Description: p.Description,
-		Readme:      p.Readme,
-		PublicID:    p.PublicID,
-		ParentID:    p.ParentID,
-		Persist:     p.Persist,
-		Seed:        p.Seed,
-		Version:     p.Version,
-		Mutable:     false,
+		ID:               p.ID,
+		Title:            p.Title,
+		Description:      p.Description,
+		Readme:           p.Readme,
+		PublicID:         p.PublicID,
+		ParentID:         p.ParentID,
+		Persist:          p.Persist,
+		Seed:             p.Seed,
+		NumberOfAccounts: p.NumberOfAccounts,
+		Version:          p.Version,
+		UpdatedAt:        p.UpdatedAt,
+		Mutable:          false,
 	}
 }
 

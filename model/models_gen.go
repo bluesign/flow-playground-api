@@ -12,15 +12,45 @@ type Event struct {
 	Values []string `json:"values"`
 }
 
+type NewContractDeployment struct {
+	ProjectID uuid.UUID `json:"projectId"`
+	Script    string    `json:"script"`
+	Address   Address   `json:"address"`
+	Arguments []string  `json:"arguments"`
+}
+
+type NewContractTemplate struct {
+	ProjectID uuid.UUID `json:"projectId"`
+	Title     string    `json:"title"`
+	Script    string    `json:"script"`
+}
+
+type NewFile struct {
+	ProjectID uuid.UUID `json:"projectId"`
+	Title     string    `json:"title"`
+	Script    string    `json:"script"`
+}
+
 type NewProject struct {
 	ParentID             *uuid.UUID                       `json:"parentId"`
 	Title                string                           `json:"title"`
 	Description          string                           `json:"description"`
 	Readme               string                           `json:"readme"`
 	Seed                 int                              `json:"seed"`
-	Accounts             []string                         `json:"accounts"`
+	NumberOfAccounts     int                              `json:"numberOfAccounts"`
 	TransactionTemplates []*NewProjectTransactionTemplate `json:"transactionTemplates"`
 	ScriptTemplates      []*NewProjectScriptTemplate      `json:"scriptTemplates"`
+	ContractTemplates    []*NewProjectContractTemplate    `json:"contractTemplates"`
+}
+
+type NewProjectContractTemplate struct {
+	Title  string `json:"title"`
+	Script string `json:"script"`
+}
+
+type NewProjectFile struct {
+	Title  string `json:"title"`
+	Script string `json:"script"`
 }
 
 type NewProjectScriptTemplate struct {
@@ -59,8 +89,9 @@ type NewTransactionTemplate struct {
 }
 
 type PlaygroundInfo struct {
-	APIVersion     semver.Version `json:"apiVersion"`
-	CadenceVersion semver.Version `json:"cadenceVersion"`
+	APIVersion      semver.Version `json:"apiVersion"`
+	CadenceVersion  semver.Version `json:"cadenceVersion"`
+	EmulatorVersion semver.Version `json:"emulatorVersion"`
 }
 
 type ProgramError struct {
@@ -73,6 +104,26 @@ type ProgramPosition struct {
 	Offset int `json:"offset"`
 	Line   int `json:"line"`
 	Column int `json:"column"`
+}
+
+type ProjectList struct {
+	Projects []*Project `json:"projects"`
+}
+
+type UpdateContractTemplate struct {
+	ID        uuid.UUID `json:"id"`
+	Title     *string   `json:"title"`
+	ProjectID uuid.UUID `json:"projectId"`
+	Index     *int      `json:"index"`
+	Script    *string   `json:"script"`
+}
+
+type UpdateFile struct {
+	ID        uuid.UUID `json:"id"`
+	Title     *string   `json:"title"`
+	ProjectID uuid.UUID `json:"projectId"`
+	Index     *int      `json:"index"`
+	Script    *string   `json:"script"`
 }
 
 type UpdateProject struct {

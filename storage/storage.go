@@ -20,10 +20,10 @@ package storage
 
 import (
 	"errors"
-
 	"github.com/Masterminds/semver"
 	"github.com/dapperlabs/flow-playground-api/model"
 	"github.com/google/uuid"
+	"time"
 )
 
 type Store interface {
@@ -32,39 +32,43 @@ type Store interface {
 
 	CreateProject(
 		proj *model.Project,
-		ttpl []*model.TransactionTemplate,
-		stpl []*model.ScriptTemplate,
+		files []*model.File,
 	) error
 	UpdateProject(input model.UpdateProject, proj *model.Project) error
 	UpdateProjectOwner(id, userID uuid.UUID) error
 	UpdateProjectVersion(id uuid.UUID, version *semver.Version) error
 	ResetProjectState(proj *model.Project) error
 	GetProject(id uuid.UUID, proj *model.Project) error
+	ProjectAccessed(id uuid.UUID) error
+	GetAllProjectsForUser(userID uuid.UUID, proj *[]*model.Project) error
+	GetProjectCountForUser(userID uuid.UUID, count *int64) error
+	DeleteProject(id uuid.UUID) error
 
-	InsertAccount(acc *model.Account) error
-	InsertAccounts(accs []*model.Account) error
-	GetAccount(id, pID uuid.UUID, acc *model.Account) error
-	GetAccountsForProject(projectID uuid.UUID, accs *[]*model.Account) error
-	DeleteAccount(id, pID uuid.UUID) error
-	UpdateAccount(input model.UpdateAccount, acc *model.Account) error
+	GetStaleProjects(stale time.Duration, projs *[]*model.Project) error
+	DeleteStaleProjects(stale time.Duration) error
+	TotalProjectCount(totalProjects *int64) error
 
-	InsertTransactionTemplate(tpl *model.TransactionTemplate) error
-	UpdateTransactionTemplate(input model.UpdateTransactionTemplate, tpl *model.TransactionTemplate) error
-	GetTransactionTemplate(id, pID uuid.UUID, tpl *model.TransactionTemplate) error
-	GetTransactionTemplatesForProject(projectID uuid.UUID, tpls *[]*model.TransactionTemplate) error
-	DeleteTransactionTemplate(id, pID uuid.UUID) error
+	InsertFile(file *model.File) error
+	UpdateFile(input model.UpdateFile, file *model.File) error
+	DeleteFile(id uuid.UUID, pID uuid.UUID) error
+	GetFile(id uuid.UUID, pID uuid.UUID, file *model.File) error
+	GetFilesForProject(projectID uuid.UUID, files *[]*model.File, fileType model.FileType) error
+	GetAllFilesForProject(projectID uuid.UUID, files *[]*model.File) error
+
+	InsertContractDeployment(deploy *model.ContractDeployment) error
+	DeleteContractDeployment(deploy *model.ContractDeployment) error
+	DeleteContractDeploymentByName(projectID uuid.UUID, address model.Address, contractName string) error
+	GetContractDeploymentsForProject(projectID uuid.UUID, deployments *[]*model.ContractDeployment) error
+	GetContractDeploymentOnAddress(projectID uuid.UUID, title string, address model.Address, deployment *model.ContractDeployment) error
+	TruncateDeploymentsAndExecutionsAtBlockHeight(projectID uuid.UUID, blockHeight int) error
 
 	InsertTransactionExecution(exe *model.TransactionExecution) error
 	GetTransactionExecutionsForProject(projectID uuid.UUID, exes *[]*model.TransactionExecution) error
 
-	InsertScriptTemplate(tpl *model.ScriptTemplate) error
-	UpdateScriptTemplate(input model.UpdateScriptTemplate, tpl *model.ScriptTemplate) error
-	GetScriptTemplate(id, pID uuid.UUID, tpl *model.ScriptTemplate) error
-	GetScriptTemplatesForProject(projectID uuid.UUID, tpls *[]*model.ScriptTemplate) error
-	DeleteScriptTemplate(id, pID uuid.UUID) error
-
 	InsertScriptExecution(exe *model.ScriptExecution) error
 	GetScriptExecutionsForProject(projectID uuid.UUID, exes *[]*model.ScriptExecution) error
+
+	Ping() error
 }
 
 var ErrNotFound = errors.New("entity not found")

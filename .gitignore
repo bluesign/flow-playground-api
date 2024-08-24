@@ -3,3 +3,4 @@
 e2e-db
 server/server
 .vscode/launch.json
+test-results.log

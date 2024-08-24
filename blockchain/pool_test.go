@@ -19,48 +19,47 @@
 package blockchain
 
 import (
-	"sync"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"sync"
+	"testing"
 )
 
 func Test_InstancePool(t *testing.T) {
 
 	t.Run("get single instance", func(t *testing.T) {
-		pool := newEmulatorPool(2)
-		em, err := pool.new()
+		pool := newFlowKitPool(2)
+		fk, err := pool.new()
 		require.NoError(t, err)
-		h, err := em.getLatestBlockHeight()
+		h, err := fk.getLatestBlockHeight()
 		require.NoError(t, err)
-		assert.Equal(t, 0, h) // confirm functioning emulator
+		assert.Equal(t, fk.initBlockHeight(), h) // confirm functioning flowKit
 	})
 
 	t.Run("drain out the pool", func(t *testing.T) {
-		pool := newEmulatorPool(3)
+		pool := newFlowKitPool(3)
 
 		for i := 0; i < 5; i++ {
-			em, err := pool.new()
+			fk, err := pool.new()
 			require.NoError(t, err)
-			h, err := em.getLatestBlockHeight()
+			h, err := fk.getLatestBlockHeight()
 			require.NoError(t, err)
-			assert.Equal(t, 0, h) // confirm functioning emulator
+			assert.Equal(t, fk.initBlockHeight(), h) // confirm functioning flowKit
 		}
 	})
 
 	t.Run("concurrently access pool", func(t *testing.T) {
-		pool := newEmulatorPool(5)
+		pool := newFlowKitPool(5)
 
 		var wg sync.WaitGroup
 		for i := 0; i < 5; i++ {
 			wg.Add(1)
 			go func() {
-				em, err := pool.new()
+				fk, err := pool.new()
 				require.NoError(t, err)
-				h, err := em.getLatestBlockHeight()
+				h, err := fk.getLatestBlockHeight()
 				require.NoError(t, err)
-				assert.Equal(t, 0, h) // confirm functioning emulator
+				assert.Equal(t, fk.initBlockHeight(), h) // confirm functioning flowKit
 				wg.Done()
 			}()
 		}

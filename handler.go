@@ -21,12 +21,11 @@ package playground
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"runtime/debug"
-
 	"github.com/dapperlabs/flow-playground-api/middleware/errors"
 	"github.com/dapperlabs/flow-playground-api/telemetry"
 	"github.com/getsentry/sentry-go"
+	"net/http"
+	"runtime/debug"
 
 	"github.com/99designs/gqlgen/graphql"
 	gqlHandler "github.com/99designs/gqlgen/graphql/handler"
@@ -35,6 +34,7 @@ import (
 func GraphQLHandler(resolver *Resolver, middlewares ...graphql.ResponseMiddleware) http.HandlerFunc {
 	srv := gqlHandler.NewDefaultServer(NewExecutableSchema(Config{Resolvers: resolver}))
 
+	srv.Use(telemetry.NewTracer())
 	srv.Use(telemetry.NewMetrics())
 
 	for _, middleware := range middlewares {
@@ -42,7 +42,7 @@ func GraphQLHandler(resolver *Resolver, middlewares ...graphql.ResponseMiddlewar
 	}
 
 	srv.SetRecoverFunc(func(ctx context.Context, err interface{}) (userMessage error) {
-		fmt.Println(err)
+		fmt.Println("Handler Recover: ", fmt.Errorf("panic: %v, stack: %s", err, string(debug.Stack())).Error())
 		sentry.CaptureException(fmt.Errorf("panic: %v, stack: %s", err, string(debug.Stack())))
 		return errors.ServerErr
 	})

@@ -19,14 +19,16 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/Masterminds/semver"
 	"github.com/dapperlabs/flow-playground-api/blockchain"
-	"github.com/getsentry/sentry-go"
+	userErrors "github.com/dapperlabs/flow-playground-api/middleware/errors"
+	"github.com/dapperlabs/flow-playground-api/model"
+	"github.com/dapperlabs/flow-playground-api/server/config"
+	"github.com/dapperlabs/flow-playground-api/storage"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-
-	"github.com/dapperlabs/flow-playground-api/model"
-	"github.com/dapperlabs/flow-playground-api/storage"
+	"time"
 )
 
 type Projects struct {
@@ -48,73 +50,120 @@ func NewProjects(
 }
 
 func (p *Projects) Create(user *model.User, input model.NewProject) (*model.Project, error) {
+	var projectCount int64
+	err := p.store.GetProjectCountForUser(user.ID, &projectCount)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get user project count")
+	}
+
+	if int(projectCount) >= config.Playground().MaxProjectsLimit {
+		return nil, userErrors.NewUserError(fmt.Sprintf("maximum number of %d projects reached",
+			config.Playground().MaxProjectsLimit))
+	}
+
 	proj := &model.Project{
-		ID:          uuid.New(),
-		Secret:      uuid.New(),
-		PublicID:    uuid.New(),
-		ParentID:    input.ParentID,
-		Seed:        input.Seed,
-		Title:       input.Title,
-		Description: input.Description,
-		Readme:      input.Readme,
-		Persist:     false,
-		Version:     p.version,
-		UserID:      user.ID,
+		ID:               uuid.New(),
+		Secret:           uuid.New(),
+		PublicID:         uuid.New(),
+		ParentID:         input.ParentID,
+		Seed:             input.Seed,
+		Title:            input.Title,
+		Description:      input.Description,
+		Readme:           input.Readme,
+		Persist:          false,
+		NumberOfAccounts: input.NumberOfAccounts,
+		AccessedAt:       time.Now(),
+		Version:          p.version,
+		UserID:           user.ID,
 	}
 
-	ttpls := make([]*model.TransactionTemplate, len(input.TransactionTemplates))
+	files := make([]*model.File, 0)
+
+	for i, tpl := range input.ContractTemplates {
+		files = append(files, &model.File{
+			ID:        uuid.New(),
+			ProjectID: proj.ID,
+			Title:     tpl.Title,
+			Script:    tpl.Script,
+			Index:     i,
+			Type:      model.ContractFile,
+		})
+	}
+
 	for i, tpl := range input.TransactionTemplates {
-		ttpls[i] = &model.TransactionTemplate{
+		files = append(files, &model.File{
 			ID:        uuid.New(),
 			ProjectID: proj.ID,
 			Title:     tpl.Title,
 			Script:    tpl.Script,
-		}
+			Index:     i,
+			Type:      model.TransactionFile,
+		})
 	}
 
-	stpls := make([]*model.ScriptTemplate, len(input.ScriptTemplates))
 	for i, tpl := range input.ScriptTemplates {
-		stpls[i] = &model.ScriptTemplate{
+		files = append(files, &model.File{
 			ID:        uuid.New(),
 			ProjectID: proj.ID,
 			Title:     tpl.Title,
 			Script:    tpl.Script,
-		}
+			Index:     i,
+			Type:      model.ScriptFile,
+		})
 	}
 
-	err := p.store.CreateProject(proj, ttpls, stpls)
+	err = p.store.CreateProject(proj, files)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create project")
-	}
-
-	accounts, err := p.blockchain.CreateInitialAccounts(proj.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	for i, account := range accounts {
-		if i < len(input.Accounts) {
-			account.DraftCode = input.Accounts[i]
-		}
-	}
-
-	err = p.store.InsertAccounts(accounts)
-	if err != nil {
-		sentry.CaptureException(err)
-		return nil, err
 	}
 
 	return proj, nil
 }
 
-func (p *Projects) Get(id uuid.UUID) (*model.Project, error) {
+func (p *Projects) Delete(id uuid.UUID) error {
 	var proj model.Project
 	err := p.store.GetProject(id, &proj)
+	if err != nil {
+		return err
+	}
+
+	err = p.store.DeleteProject(id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (p *Projects) Get(id uuid.UUID) (*model.Project, error) {
+	err := p.store.ProjectAccessed(id)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to update project accessed time")
+	}
+
+	var proj model.Project
+	err = p.store.GetProject(id, &proj)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get project")
 	}
 
 	return &proj, nil
+}
+
+func (p *Projects) GetProjectListForUser(userID uuid.UUID) (*model.ProjectList, error) {
+	var projects []*model.Project
+	err := p.store.GetAllProjectsForUser(userID, &projects)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get projects for user "+userID.String())
+	}
+
+	exportedProjects := make([]*model.Project, len(projects))
+
+	for i, proj := range projects {
+		exportedProjects[i] = proj.ExportPublicMutable()
+	}
+
+	return &model.ProjectList{Projects: exportedProjects}, nil
 }
 
 func (p *Projects) Update(input model.UpdateProject) (*model.Project, error) {
@@ -136,7 +185,6 @@ func (p *Projects) UpdateVersion(id uuid.UUID, version *semver.Version) error {
 	return nil
 }
 
-// Reset is not used in the API but for migration
-func (p *Projects) Reset(proj *model.Project) ([]*model.Account, error) {
-	return p.blockchain.Reset(proj)
+func (p *Projects) Reset(projID uuid.UUID) error {
+	return p.blockchain.Reset(projID)
 }

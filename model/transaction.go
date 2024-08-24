@@ -20,23 +20,28 @@ package model
 
 import (
 	"github.com/google/uuid"
-	"github.com/onflow/flow-emulator/types"
 	flowsdk "github.com/onflow/flow-go-sdk"
 	"github.com/pkg/errors"
 )
 
-type TransactionTemplate struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	Title     string
-	Index     int
-	Script    string
+type TransactionTemplate = File
+
+type TransactionExecution struct {
+	File
+	BlockHeight int            `json:"blockHeight"`
+	Arguments   []string       `gorm:"serializer:json"`
+	Signers     []Address      `gorm:"serializer:json"`
+	Errors      []ProgramError `gorm:"serializer:json"`
+	Events      []Event        `gorm:"serializer:json"`
+	Logs        []string       `gorm:"serializer:json"`
 }
 
 func TransactionExecutionFromFlow(
 	projectID uuid.UUID,
-	result *types.TransactionResult,
+	result *flowsdk.TransactionResult,
 	tx *flowsdk.Transaction,
+	logs []string,
+	blockHeight int,
 ) *TransactionExecution {
 	args := make([]string, 0)
 	signers := make([]Address, 0)
@@ -55,12 +60,18 @@ func TransactionExecutionFromFlow(
 	}
 
 	exe := &TransactionExecution{
-		ID:        uuid.New(),
-		ProjectID: projectID,
-		Script:    script,
-		Arguments: args,
-		Signers:   signers,
-		Logs:      result.Logs,
+		File: File{
+			ID:        uuid.New(),
+			ProjectID: projectID,
+			Type:      TransactionFile,
+			Script:    script,
+		},
+		BlockHeight: blockHeight,
+		Arguments:   args,
+		Signers:     signers,
+		Errors:      nil,
+		Events:      nil,
+		Logs:        logs,
 	}
 
 	if result.Events != nil {
@@ -73,18 +84,6 @@ func TransactionExecutionFromFlow(
 	}
 
 	return exe
-}
-
-type TransactionExecution struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	Index     int
-	Script    string
-	Arguments []string       `gorm:"serializer:json"`
-	Signers   []Address      `gorm:"serializer:json"`
-	Errors    []ProgramError `gorm:"serializer:json"`
-	Events    []Event        `gorm:"serializer:json"`
-	Logs      []string       `gorm:"serializer:json"`
 }
 
 func (n *NewTransactionExecution) SignersToFlow() []flowsdk.Address {

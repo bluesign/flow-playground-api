@@ -20,15 +20,15 @@ package playground
 
 import (
 	"context"
+	"time"
 
 	"github.com/Masterminds/semver"
-	"github.com/dapperlabs/flow-playground-api/adapter"
 	"github.com/dapperlabs/flow-playground-api/auth"
 	"github.com/dapperlabs/flow-playground-api/blockchain"
 	"github.com/dapperlabs/flow-playground-api/controller"
 	userErr "github.com/dapperlabs/flow-playground-api/middleware/errors"
-	"github.com/dapperlabs/flow-playground-api/migrate"
 	"github.com/dapperlabs/flow-playground-api/model"
+	"github.com/dapperlabs/flow-playground-api/server/version"
 	"github.com/dapperlabs/flow-playground-api/storage"
 	"github.com/google/uuid"
 	"github.com/onflow/cadence"
@@ -39,11 +39,9 @@ type Resolver struct {
 	version            *semver.Version
 	store              storage.Store
 	auth               *auth.Authenticator
-	migrator           *migrate.Migrator
 	projects           *controller.Projects
-	scripts            *controller.Scripts
-	transactions       *controller.Transactions
 	accounts           *controller.Accounts
+	files              *controller.Files
 	lastCreatedProject *model.Project
 }
 
@@ -54,20 +52,16 @@ func NewResolver(
 	blockchain *blockchain.Projects,
 ) *Resolver {
 	projects := controller.NewProjects(version, store, blockchain)
-	scripts := controller.NewScripts(store, blockchain)
-	transactions := controller.NewTransactions(store, blockchain)
+	files := controller.NewFiles(store, blockchain)
 	accounts := controller.NewAccounts(store, blockchain)
-	migrator := migrate.NewMigrator(store, projects)
 
 	return &Resolver{
-		version:      version,
-		store:        store,
-		auth:         auth,
-		migrator:     migrator,
-		projects:     projects,
-		scripts:      scripts,
-		transactions: transactions,
-		accounts:     accounts,
+		version:  version,
+		store:    store,
+		auth:     auth,
+		projects: projects,
+		accounts: accounts,
+		files:    files,
 	}
 }
 
@@ -81,10 +75,6 @@ func (r *Resolver) Project() ProjectResolver {
 
 func (r *Resolver) Query() QueryResolver {
 	return &queryResolver{r}
-}
-
-func (r *Resolver) TransactionExecution() TransactionExecutionResolver {
-	return &transactionExecutionResolver{r}
 }
 
 func (r *Resolver) LastCreatedProject() *model.Project {
@@ -105,13 +95,12 @@ type mutationResolver struct {
 
 func (r *mutationResolver) authorize(ctx context.Context, ID uuid.UUID) error {
 	proj, err := r.projects.Get(ID)
-
 	if err != nil {
 		return errors.Wrap(err, "failed to get project")
 	}
 
 	if err := r.auth.CheckProjectAccess(ctx, proj); err != nil {
-		return userErr.NewUserError("not authorized")
+		return userErr.NewAuthorizationError("not authorized")
 	}
 
 	return nil
@@ -120,7 +109,7 @@ func (r *mutationResolver) authorize(ctx context.Context, ID uuid.UUID) error {
 func (r *mutationResolver) CreateProject(ctx context.Context, input model.NewProject) (*model.Project, error) {
 	user, err := r.auth.GetOrCreateUser(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get or create user")
+		return nil, userErr.NewAuthorizationError(err.Error())
 	}
 
 	proj, err := r.projects.Create(user, input)
@@ -151,22 +140,32 @@ func (r *mutationResolver) UpdateProject(ctx context.Context, input model.Update
 	return proj.ExportPublicMutable(), nil
 }
 
-func (r *mutationResolver) UpdateAccount(ctx context.Context, input model.UpdateAccount) (*model.Account, error) {
-	err := r.authorize(ctx, input.ProjectID)
+func (r *mutationResolver) ResetProjectState(ctx context.Context, projectID uuid.UUID) (uuid.UUID, error) {
+	err := r.authorize(ctx, projectID)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, err
 	}
 
-	if err := validateUpdate(&input); err != nil {
-		return nil, err
-	}
-
-	acc, err := r.accounts.Update(adapter.AccountFromAPI(input))
+	err = r.projects.Reset(projectID)
 	if err != nil {
-		return nil, err
+		return uuid.UUID{}, errors.Wrap(err, "failed to reset project")
 	}
 
-	return adapter.AccountToAPI(acc), nil
+	return projectID, nil
+}
+
+func (r *mutationResolver) DeleteProject(ctx context.Context, projectID uuid.UUID) (uuid.UUID, error) {
+	err := r.authorize(ctx, projectID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	err = r.projects.Delete(projectID)
+	if err != nil {
+		return uuid.UUID{}, errors.Wrap(err, "failed to delete project")
+	}
+
+	return projectID, nil
 }
 
 func (r *mutationResolver) CreateTransactionTemplate(ctx context.Context, input model.NewTransactionTemplate) (*model.TransactionTemplate, error) {
@@ -174,8 +173,7 @@ func (r *mutationResolver) CreateTransactionTemplate(ctx context.Context, input 
 	if err != nil {
 		return nil, err
 	}
-
-	return r.transactions.CreateTemplate(input.ProjectID, input.Title, input.Script)
+	return r.files.CreateFile(input.ProjectID, model.NewFile(input), model.TransactionFile)
 }
 
 func (r *mutationResolver) UpdateTransactionTemplate(ctx context.Context, input model.UpdateTransactionTemplate) (*model.TransactionTemplate, error) {
@@ -188,7 +186,7 @@ func (r *mutationResolver) UpdateTransactionTemplate(ctx context.Context, input 
 		return nil, err
 	}
 
-	return r.transactions.UpdateTemplate(input)
+	return r.files.UpdateFile(model.UpdateFile(input))
 }
 
 func (r *mutationResolver) DeleteTransactionTemplate(ctx context.Context, id uuid.UUID, projectID uuid.UUID) (uuid.UUID, error) {
@@ -197,7 +195,7 @@ func (r *mutationResolver) DeleteTransactionTemplate(ctx context.Context, id uui
 		return uuid.UUID{}, err
 	}
 
-	err = r.transactions.DeleteTemplate(id, projectID)
+	err = r.files.DeleteFile(id, projectID)
 	if err != nil {
 		return id, err
 	}
@@ -214,14 +212,12 @@ func (r *mutationResolver) CreateTransactionExecution(
 		return nil, err
 	}
 
-	exe, err := r.transactions.CreateTransactionExecution(
-		adapter.TransactionFromAPI(input),
-	)
+	exe, err := r.files.CreateTransactionExecution(input)
 	if err != nil {
 		return nil, err
 	}
 
-	return adapter.TransactionToAPI(exe), nil
+	return exe, nil
 }
 
 func (r *mutationResolver) CreateScriptTemplate(ctx context.Context, input model.NewScriptTemplate) (*model.ScriptTemplate, error) {
@@ -230,12 +226,13 @@ func (r *mutationResolver) CreateScriptTemplate(ctx context.Context, input model
 		return nil, err
 	}
 
-	tpl, err := r.scripts.CreateTemplate(input.ProjectID, input)
+	file, err := r.files.CreateFile(input.ProjectID, model.NewFile(input), model.ScriptFile)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create script template")
 	}
 
-	return tpl, nil
+	return file, nil
 }
 
 func (r *mutationResolver) UpdateScriptTemplate(ctx context.Context, input model.UpdateScriptTemplate) (*model.ScriptTemplate, error) {
@@ -248,7 +245,7 @@ func (r *mutationResolver) UpdateScriptTemplate(ctx context.Context, input model
 		return nil, err
 	}
 
-	return r.scripts.UpdateTemplate(input)
+	return r.files.UpdateFile(model.UpdateFile(input))
 }
 
 func (r *mutationResolver) DeleteScriptTemplate(
@@ -261,7 +258,7 @@ func (r *mutationResolver) DeleteScriptTemplate(
 		return uuid.UUID{}, err
 	}
 
-	err = r.scripts.DeleteTemplate(id, projectID)
+	err = r.files.DeleteFile(id, projectID)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -278,53 +275,143 @@ func (r *mutationResolver) CreateScriptExecution(
 		return nil, err
 	}
 
-	exe, err := r.scripts.CreateExecution(adapter.ScriptFromAPI(input))
+	return r.files.CreateScriptExecution(input)
+}
+
+func (r *mutationResolver) CreateContractTemplate(ctx context.Context, input model.NewContractTemplate) (*model.File, error) {
+	err := r.authorize(ctx, input.ProjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	return adapter.ScriptToAPI(exe), nil
+	file, err := r.files.CreateFile(input.ProjectID, model.NewFile(input), model.ContractFile)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create contract template")
+	}
+
+	return file, nil
+}
+
+func (r *mutationResolver) UpdateContractTemplate(
+	ctx context.Context, input model.UpdateContractTemplate,
+) (*model.ContractTemplate, error) {
+	err := r.authorize(ctx, input.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := validateUpdate(&input); err != nil {
+		return nil, err
+	}
+
+	return r.files.UpdateFile(model.UpdateFile(input))
+}
+
+func (r *mutationResolver) DeleteContractTemplate(
+	ctx context.Context,
+	id uuid.UUID,
+	projectID uuid.UUID,
+) (uuid.UUID, error) {
+	err := r.authorize(ctx, projectID)
+	if err != nil {
+		return uuid.UUID{}, err
+	}
+
+	err = r.files.DeleteFile(id, projectID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+func (r *mutationResolver) CreateContractDeployment(
+	ctx context.Context,
+	input model.NewContractDeployment,
+) (*model.ContractDeployment, error) {
+	err := r.authorize(ctx, input.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+
+	deployment, err := r.files.DeployContract(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return deployment, nil
 }
 
 type projectResolver struct{ *Resolver }
 
-func (r *projectResolver) Accounts(_ context.Context, proj *model.Project) ([]*model.Account, error) {
-	accounts, err := r.accounts.AllForProjectID(proj.ID)
+func (r *projectResolver) TransactionTemplates(_ context.Context, proj *model.Project) ([]*model.TransactionTemplate, error) {
+	files, err := r.files.GetFilesForProject(proj.ID, model.TransactionFile)
 	if err != nil {
 		return nil, err
 	}
 
-	return adapter.AccountsToAPI(accounts), nil
-}
-
-func (r *projectResolver) TransactionTemplates(_ context.Context, proj *model.Project) ([]*model.TransactionTemplate, error) {
-	return r.transactions.AllTemplatesForProjectID(proj.ID)
+	return files, nil
 }
 
 func (r *projectResolver) TransactionExecutions(_ context.Context, proj *model.Project) ([]*model.TransactionExecution, error) {
-	exes, err := r.transactions.AllExecutionsForProjectID(proj.ID)
+	var exes []*model.TransactionExecution
+	err := r.store.GetTransactionExecutionsForProject(proj.ID, &exes)
 	if err != nil {
 		return nil, err
 	}
 
-	return adapter.TransactionsToAPI(exes), nil
+	return exes, nil
 }
 
 func (r *projectResolver) ScriptTemplates(_ context.Context, proj *model.Project) ([]*model.ScriptTemplate, error) {
-	return r.scripts.AllTemplatesForProjectID(proj.ID)
+	return r.files.GetFilesForProject(proj.ID, model.ScriptFile)
 }
 
-func (r *projectResolver) ScriptExecutions(_ context.Context, _ *model.Project) ([]*model.ScriptExecution, error) {
-	// todo implement
-	panic("not implemented")
+func (r *projectResolver) ScriptExecutions(_ context.Context, proj *model.Project) ([]*model.ScriptExecution, error) {
+	var exes []*model.ScriptExecution
+	err := r.store.GetScriptExecutionsForProject(proj.ID, &exes)
+	if err != nil {
+		return nil, err
+	}
+
+	return exes, nil
+}
+
+func (r *projectResolver) ContractTemplates(_ context.Context, proj *model.Project) ([]*model.ContractTemplate, error) {
+	return r.files.GetFilesForProject(proj.ID, model.ContractFile)
+}
+
+func (r *projectResolver) ContractDeployments(_ context.Context, proj *model.Project) ([]*model.ContractDeployment, error) {
+	var deploys []*model.ContractDeployment
+	err := r.store.GetContractDeploymentsForProject(proj.ID, &deploys)
+	if err != nil {
+		return nil, err
+	}
+
+	return deploys, nil
+}
+
+func (r *projectResolver) Accounts(_ context.Context, proj *model.Project) ([]*model.Account, error) {
+	return r.accounts.AllForProjectID(proj.ID)
+}
+
+func (r *projectResolver) UpdatedAt(_ context.Context, proj *model.Project) (string, error) {
+	return proj.UpdatedAt.Format(time.RFC1123Z), nil
 }
 
 type queryResolver struct{ *Resolver }
 
 func (r *queryResolver) PlaygroundInfo(_ context.Context) (*model.PlaygroundInfo, error) {
+	emulatorVer, err := version.GetDependencyVersion("github.com/onflow/flow-emulator")
+	if err != nil {
+		return nil, err
+	}
+
 	return &model.PlaygroundInfo{
-		APIVersion:     *r.version,
-		CadenceVersion: *semver.MustParse(cadence.Version),
+		APIVersion:      *r.version,
+		CadenceVersion:  *semver.MustParse(cadence.Version),
+		EmulatorVersion: *semver.MustParse(emulatorVer),
 	}, nil
 }
 
@@ -334,21 +421,6 @@ func (r *queryResolver) Project(ctx context.Context, id uuid.UUID) (*model.Proje
 		return nil, errors.Wrap(err, "failed to get project")
 	}
 
-	// todo
-	// only migrate if current user has access to this project
-	migrated, err := r.migrator.MigrateProject(id, proj.Version, r.version)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to migrate project")
-	}
-
-	// reload project if needed
-	if migrated {
-		proj, err = r.projects.Get(id)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get project")
-		}
-	}
-
 	if err := r.auth.CheckProjectAccess(ctx, proj); err != nil {
 		return proj.ExportPublicImmutable(), nil
 	}
@@ -356,25 +428,31 @@ func (r *queryResolver) Project(ctx context.Context, id uuid.UUID) (*model.Proje
 	return proj.ExportPublicMutable(), nil
 }
 
-func (r *queryResolver) Account(_ context.Context, id uuid.UUID, projectID uuid.UUID) (*model.Account, error) {
-	acc, err := r.accounts.GetByID(id, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	return adapter.AccountToAPI(acc), nil
-}
-
 func (r *queryResolver) TransactionTemplate(_ context.Context, id uuid.UUID, projectID uuid.UUID) (*model.TransactionTemplate, error) {
-	return r.transactions.TemplateByID(id, projectID)
+	return r.files.GetFile(id, projectID)
 }
 
 func (r *queryResolver) ScriptTemplate(_ context.Context, id uuid.UUID, projectID uuid.UUID) (*model.ScriptTemplate, error) {
-	return r.scripts.TemplateByID(id, projectID)
+	return r.files.GetFile(id, projectID)
 }
 
-type transactionExecutionResolver struct{ *Resolver }
+func (r *queryResolver) ContractTemplate(_ context.Context, id uuid.UUID, projectID uuid.UUID) (*model.ContractTemplate, error) {
+	return r.files.GetFile(id, projectID)
+}
 
-func (*transactionExecutionResolver) Signers(_ context.Context, _ *model.TransactionExecution) ([]*model.Account, error) {
-	panic("not implemented")
+func (r *queryResolver) Account(_ context.Context, address model.Address, projectID uuid.UUID) (*model.Account, error) {
+	return r.accounts.GetByAddress(address, projectID)
+}
+
+func (r *queryResolver) ProjectList(ctx context.Context) (*model.ProjectList, error) {
+	user, err := r.auth.GetOrCreateUser(ctx)
+	if err != nil {
+		return nil, userErr.NewAuthorizationError(err.Error())
+	}
+
+	return r.projects.GetProjectListForUser(user.ID)
+}
+
+func (r *queryResolver) FlowJSON(_ context.Context, projectID uuid.UUID) (string, error) {
+	return r.files.GetFlowJson(projectID)
 }

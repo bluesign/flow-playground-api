@@ -19,62 +19,45 @@
 package blockchain
 
 import (
-	"github.com/getsentry/sentry-go"
+	"github.com/golang/groupcache/lru"
 	"github.com/google/uuid"
-	lru "github.com/hashicorp/golang-lru"
 )
+
+// newEmulatorCache returns a new instance of cache with provided capacity.
+func newFlowKitCache(capacity int) *flowKitCache {
+	return &flowKitCache{
+		cache: lru.New(capacity),
+	}
+}
 
 // emulatorCache caches the emulator state.
 //
-// In the environment where multiple replicas maintain its own cache copy it can get into multiple states:
+// In the environment where multiple replicas maintain it's own cache copy it can get into multiple states:
 //   - it can get stale because replica A receives transaction execution 1, and replica B receives transaction execution 2,
 //     then replica A needs to apply missed transaction execution 2 before continuing
 //   - it can be outdated because replica A receives project reset, which clears all executions and the cache, but replica B
 //     doesn't receive that request so on next run it receives 0 executions but cached emulator contains state from previous
 //     executions that wasn't cleared
-type emulatorCache struct {
+type flowKitCache struct {
 	cache *lru.Cache
 }
 
-// newEmulatorCache returns a new instance of emulatorCache with provided capacity.
-func newEmulatorCache(capacity int) *emulatorCache {
-	cache, err := lru.New(capacity)
-	if err != nil {
-		cache = nil
-		sentry.CaptureMessage("Continuing without emulator caching: " + err.Error())
-	}
-
-	return &emulatorCache{
-		cache: cache,
-	}
-}
-
-// reset the cached emulator for the ID.
-func (c *emulatorCache) reset(ID uuid.UUID) {
-	if c.cache == nil {
-		return
-	}
+// reset the cache for the ID.
+func (c *flowKitCache) reset(ID uuid.UUID) {
 	c.cache.Remove(ID)
 }
 
-// get returns a cached emulator for specified ID if it exists
-func (c *emulatorCache) get(ID uuid.UUID) *emulator {
-	if c.cache == nil {
-		return nil
-	}
-
+// get returns a cached emulator if exists, but also checks if it's stale.
+func (c *flowKitCache) get(ID uuid.UUID) *flowKit {
 	val, ok := c.cache.Get(ID)
 	if !ok {
 		return nil
 	}
 
-	return val.(*emulator)
+	return val.(*flowKit)
 }
 
-// add new emulator to the cache.
-func (c *emulatorCache) add(ID uuid.UUID, emulator *emulator) {
-	if c.cache == nil {
-		return
-	}
-	c.cache.Add(ID, emulator)
+// add new entry in the cache.
+func (c *flowKitCache) add(ID uuid.UUID, fk *flowKit) {
+	c.cache.Add(ID, fk)
 }

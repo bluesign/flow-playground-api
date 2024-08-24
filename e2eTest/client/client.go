@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -87,7 +87,7 @@ func (p *Client) Post(w *httptest.ResponseRecorder, query string, response inter
 }
 
 // RawPost is similar to Post, except it skips decoding the raw json response
-// unpacked onto Response. This is used to test extension keys which are not
+// unpacked onto Response. This is used to e2eTest extension keys which are not
 // available when using Post.
 func (p *Client) RawPost(w *httptest.ResponseRecorder, query string, options ...Option) (*Response, error) {
 	r, err := p.newRequest(query, options...)
@@ -134,7 +134,7 @@ func (p *Client) newRequest(query string, options ...Option) (*http.Request, err
 		if err != nil {
 			return nil, fmt.Errorf("encode: %s", err.Error())
 		}
-		bd.HTTP.Body = ioutil.NopCloser(bytes.NewBuffer(requestBody))
+		bd.HTTP.Body = io.NopCloser(bytes.NewBuffer(requestBody))
 	default:
 		panic("unsupported encoding" + bd.HTTP.Header.Get("Content-Type"))
 	}

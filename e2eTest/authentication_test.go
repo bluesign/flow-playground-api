@@ -1,0 +1,134 @@
+/*
+ * Flow Playground
+ *
+ * Copyright 2019 Dapper Labs, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package e2eTest
+
+import (
+	"github.com/dapperlabs/flow-playground-api/e2eTest/client"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"net/http"
+	"testing"
+)
+
+func TestAuthentication(t *testing.T) {
+	t.Run("Create project with malformed session cookie", func(t *testing.T) {
+		c := newClient()
+
+		var respA CreateProjectResponse
+
+		malformedCookie := http.Cookie{
+			Name:  sessionName,
+			Value: "foo",
+		}
+
+		err := c.Post(
+			MutationCreateProject,
+			&respA,
+			client.Var("title", "foo"),
+			client.Var("description", "desc"),
+			client.Var("readme", "rtfm"),
+			client.Var("seed", 42),
+			client.Var("numberOfAccounts", initAccounts),
+			client.AddCookie(&malformedCookie),
+		)
+		require.NoError(t, err)
+
+		projectID := respA.CreateProject.ID
+		projectTitle := respA.CreateProject.Title
+		projectDescription := respA.CreateProject.Description
+		projectReadme := respA.CreateProject.Readme
+
+		assert.NotEmpty(t, projectID)
+		assert.Equal(t, 42, respA.CreateProject.Seed)
+
+		// session cookie should be overwritten with new value
+		assert.NotNil(t, c.SessionCookie())
+
+		var respB UpdateProjectResponse
+
+		err = c.Post(
+			MutationUpdateProjectPersist,
+			&respB,
+			client.Var("projectId", projectID),
+			client.Var("title", projectTitle),
+			client.Var("description", projectDescription),
+			client.Var("readme", projectReadme),
+			client.Var("persist", true),
+			client.AddCookie(c.SessionCookie()),
+		)
+		require.NoError(t, err)
+
+		// should be able to perform update using new session cookie
+		assert.Equal(t, projectID, respB.UpdateProject.ID)
+		assert.Equal(t, projectTitle, respB.UpdateProject.Title)
+		assert.Equal(t, projectDescription, respB.UpdateProject.Description)
+		assert.Equal(t, projectReadme, respB.UpdateProject.Readme)
+		assert.True(t, respB.UpdateProject.Persist)
+	})
+
+	t.Run("Update project with malformed session cookie", func(t *testing.T) {
+		c := newClient()
+
+		project := createProject(t, c)
+
+		var resp UpdateProjectResponse
+
+		malformedCookie := http.Cookie{
+			Name:  sessionName,
+			Value: "foo",
+		}
+
+		c.ClearSessionCookie()
+
+		err := c.Post(
+			MutationUpdateProjectPersist,
+			&resp,
+			client.Var("projectId", project.ID),
+			client.Var("persist", true),
+			client.AddCookie(&malformedCookie),
+		)
+
+		assert.Error(t, err)
+
+		// session cookie should not be set
+		assert.Nil(t, c.SessionCookie())
+	})
+
+	t.Run("Update project with invalid session cookie", func(t *testing.T) {
+		c := newClient()
+
+		projectA := createProject(t, c)
+		_ = createProject(t, c)
+
+		cookieB := c.SessionCookie()
+
+		var resp UpdateProjectResponse
+
+		err := c.Post(
+			MutationUpdateProjectPersist,
+			&resp,
+			client.Var("projectId", projectA.ID),
+			client.Var("persist", true),
+			client.AddCookie(cookieB),
+		)
+
+		// should not be able to update project A with cookie B
+		assert.Error(t, err)
+	})
+}

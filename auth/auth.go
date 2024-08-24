@@ -20,14 +20,15 @@ package auth
 
 import (
 	"context"
-
-	"github.com/google/uuid"
-	"github.com/pkg/errors"
-
+	"fmt"
 	legacyauth "github.com/dapperlabs/flow-playground-api/auth/legacy"
 	"github.com/dapperlabs/flow-playground-api/middleware/sessions"
 	"github.com/dapperlabs/flow-playground-api/model"
 	"github.com/dapperlabs/flow-playground-api/storage"
+	"github.com/getsentry/sentry-go"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"sync"
 )
 
 // An Authenticator manages user authentication for the Playground API.
@@ -37,6 +38,7 @@ import (
 type Authenticator struct {
 	store       storage.Store
 	sessionName string
+	lock        sync.Mutex
 }
 
 // NewAuthenticator returns a new authenticator instance.
@@ -57,28 +59,46 @@ const userIDKey = "userID"
 // GetOrCreateUser gets an existing user from the current session or creates a
 // new user and session if a session does not already exist.
 func (a *Authenticator) GetOrCreateUser(ctx context.Context) (*model.User, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
 	session := sessions.Get(ctx, a.sessionName)
 
-	var user *model.User
-	var err error
-
-	if session.IsNew {
+	user, err := a.getCurrentUser(ctx)
+	if errors.Is(err, errNotFound) {
+		// Create new user since UserID for cookie has not been created yet
 		user, err = a.createNewUser()
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create new user")
 		}
 
 		session.Values[userIDKey] = user.ID.String()
-	} else {
-		user, err = a.getCurrentUser(session.Values[userIDKey].(string))
+		err = sessions.Save(ctx, session)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load user from session")
+			fmt.Println("Failed to save session!")
+			return nil, errors.Wrap(err, "failed to save userID to session")
 		}
+	} else if err != nil {
+		sentry.CaptureException(errors.New(fmt.Sprintf(
+			"Failed to load user id %s from session\n", session.Values[userIDKey].(string))))
+		return nil, errors.New("failed to load user id from session")
 	}
 
-	err = sessions.Save(ctx, session)
+	return user, nil
+}
+
+func (a *Authenticator) GetUser(ctx context.Context) (*model.User, error) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
+	session := sessions.Get(ctx, a.sessionName)
+	user, err := a.getCurrentUser(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to update session")
+		if !errors.Is(err, errNotFound) {
+			sentry.CaptureException(errors.New(fmt.Sprintf(
+				"Failed to load user id %s from session\n", session.Values[userIDKey].(string))))
+		}
+		return nil, fmt.Errorf("failed to load user id from session: %w", err)
 	}
 
 	return user, nil
@@ -90,16 +110,18 @@ func (a *Authenticator) GetOrCreateUser(ctx context.Context) (*model.User, error
 // This function checks for access using both the new and legacy authentication schemes. If
 // a user has legacy access, their authentication is then migrated to use the new scheme.
 func (a *Authenticator) CheckProjectAccess(ctx context.Context, proj *model.Project) error {
-	var user *model.User
-	var err error
+	a.lock.Lock()
+	defer a.lock.Unlock()
 
 	session := sessions.Get(ctx, a.sessionName)
 
-	if !session.IsNew {
-		user, err = a.getCurrentUser(session.Values[userIDKey].(string))
-		if err != nil {
-			return errors.New("access denied")
-		}
+	if session.Values[userIDKey] == nil {
+		return errors.New("no userIdKey found in session")
+	}
+
+	user, err := a.getCurrentUser(ctx)
+	if err != nil {
+		return errors.New("access denied")
 	}
 
 	if a.hasProjectAccess(user, proj) {
@@ -130,18 +152,30 @@ func (a *Authenticator) CheckProjectAccess(ctx context.Context, proj *model.Proj
 	return errors.New("access denied")
 }
 
-func (a *Authenticator) getCurrentUser(userIDStr string) (*model.User, error) {
+var errNotFound = errors.New("user not found")
+
+// getCurrentUser from the request context using the session to get the user ID
+// and retrieving that user from the storage.
+// expected errors:
+// - errNotFound user was not created
+func (a *Authenticator) getCurrentUser(ctx context.Context) (*model.User, error) {
+	session := sessions.Get(ctx, a.sessionName)
+	if session.Values[userIDKey] == nil {
+		return nil, errNotFound
+	}
+	rawUserID := session.Values[userIDKey].(string)
+
 	var user model.User
 	var userID uuid.UUID
 
-	err := userID.UnmarshalText([]byte(userIDStr))
+	err := userID.UnmarshalText([]byte(rawUserID))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to unmarshal userIDStr")
 	}
 
 	err = a.store.GetUser(userID, &user)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get user from db")
 	}
 
 	return &user, nil

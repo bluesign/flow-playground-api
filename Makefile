@@ -10,18 +10,13 @@ KUBECONFIG := $(shell uuidgen)
 generate:
 	GO111MODULE=on go generate ./...
 
-.PHONY: test
-test:
-	GO111MODULE=on go test -v ./...
+.PHONY: ci
+ci: check-tidy
+	GO111MODULE=on go test -timeout 30m -v ./...
 
-.PHONY: test-datastore
-test-pg:
-	DATASTORE_EMULATOR_HOST=localhost:8081 FLOW_STORAGEBACKEND=datastore GO111MODULE=on go test -v ./...
-
-.PHONY: test-migration
-test-migration:
-	DATASTORE_EMULATOR_HOST=localhost:8081 FLOW_STORAGEBACKEND=datastore GO111MODULE=on go test ./migrate/...
-
+.PHONY: test-log
+test-log:
+	GO111MODULE=on go test -timeout 30m -v ./... > test-results.log
 
 .PHONY: run
 run:
@@ -35,6 +30,7 @@ run:
 .PHONY: run-pg
 run-pg:
 	FLOW_DB_USER=postgres \
+	FLOW_DB_PASSWORD=password \
 	FLOW_DB_PORT=5432 \
 	FLOW_DB_NAME=dapper \
 	FLOW_DB_HOST=localhost \
@@ -45,15 +41,12 @@ run-pg:
 	-ldflags "-X github.com/dapperlabs/flow-playground-api/build.version=$(LAST_KNOWN_VERSION)" \
 	server/server.go
 
-.PHONY: ci
-ci: check-tidy test check-headers
-
 .PHONY: install-linter
 install-linter:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ${GOPATH}/bin v1.47.2
 
 .PHONY: lint
-lint:
+lint: check-headers
 	golangci-lint run -v ./...
 
 .PHONY: check-headers

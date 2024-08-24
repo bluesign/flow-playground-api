@@ -20,47 +20,51 @@ package model
 
 import (
 	"github.com/google/uuid"
-	jsoncdc "github.com/onflow/cadence/encoding/json"
-	"github.com/onflow/flow-emulator/types"
+	"github.com/onflow/cadence"
 	"github.com/pkg/errors"
 )
 
-type ScriptTemplate struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	Title     string
-	Index     int
-	Script    string
-}
-
-func ScriptExecutionFromFlow(result *types.ScriptResult, projectID uuid.UUID, script string, arguments []string) *ScriptExecution {
-	exe := &ScriptExecution{
-		ID:        uuid.New(),
-		ProjectID: projectID,
-		Script:    script,
-		Arguments: arguments,
-		Logs:      result.Logs,
-	}
-
-	if result.Error != nil {
-		exe.Errors = ProgramErrorFromFlow(result.Error)
-	} else {
-		enc, _ := jsoncdc.Encode(result.Value)
-		exe.Value = string(enc)
-	}
-
-	return exe
-}
+type ScriptTemplate = File
 
 type ScriptExecution struct {
-	ID        uuid.UUID
-	ProjectID uuid.UUID
-	Index     int
-	Script    string
+	File
 	Arguments []string `gorm:"serializer:json"`
 	Value     string
 	Errors    []ProgramError `gorm:"serializer:json"`
 	Logs      []string       `gorm:"serializer:json"`
+}
+
+func ScriptExecutionFromFlow(
+	result cadence.Value,
+	logs []string,
+	projectID uuid.UUID,
+	script string,
+	arguments []string,
+) *ScriptExecution {
+	exe := &ScriptExecution{
+		File: File{
+			ID:        uuid.New(),
+			ProjectID: projectID,
+			Type:      ScriptFile,
+			Script:    script,
+		},
+		Arguments: arguments,
+		Value:     result.String(),
+		Errors:    nil,
+		Logs:      logs,
+	}
+
+	/*
+		// TODO: Check result for errors
+		if result.Error != nil {
+			exe.Errors = ProgramErrorFromFlow(result.Error)
+		} else {
+			enc, _ := jsoncdc.Encode(result.Value)
+			exe.Value = string(enc)
+		}
+	*/
+
+	return exe
 }
 
 func (u *UpdateScriptTemplate) Validate() error {

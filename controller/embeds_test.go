@@ -21,17 +21,15 @@ package controller
 import (
 	"context"
 	"fmt"
+	"github.com/dapperlabs/flow-playground-api/storage"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/dapperlabs/flow-playground-api/storage"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/Masterminds/semver"
+	"github.com/alecthomas/assert"
 	"github.com/go-chi/chi"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -50,7 +48,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body io
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 
-	respBody, err := ioutil.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 
 	defer resp.Body.Close()
@@ -111,21 +109,20 @@ func TestEmbedsHandler_ServeHTTP(t *testing.T) {
 		PublicID: uuid.New(),
 		ParentID: &parentID,
 		Seed:     0,
-		Title:    "test-project",
+		Title:    "e2eTest-project",
 		Persist:  false,
 		Version:  version,
 	}
 
-	ttpls := make([]*model.TransactionTemplate, 0)
-	stpls := make([]*model.ScriptTemplate, 0)
+	files := make([]*model.File, 0)
 
 	internalProj.UserID = user.ID
 
-	projErr := store.CreateProject(internalProj, ttpls, stpls)
+	projErr := store.CreateProject(internalProj, files)
 	require.NoError(t, projErr)
 
 	script := `
-	access(all) fun main(): Int {
+	pub fun main(): Int {
 	  return 42
 	}
 	`
@@ -133,12 +130,12 @@ func TestEmbedsHandler_ServeHTTP(t *testing.T) {
 	scriptTemplate := model.ScriptTemplate{
 		ID:        uuid.MustParse(scriptID),
 		ProjectID: uuid.MustParse(projectID),
-		Title:     "test contract",
+		Title:     "e2eTest contract",
 		Script:    script,
 	}
 
 	// insert your mock data
-	err := store.InsertScriptTemplate(&scriptTemplate)
+	err := store.InsertFile(&scriptTemplate)
 	require.NoError(t, err)
 
 	r := chi.NewRouter()

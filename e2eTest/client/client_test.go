@@ -20,19 +20,18 @@ package client_test
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"github.com/dapperlabs/flow-playground-api/e2eTest/client"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/dapperlabs/flow-playground-api/client"
 )
 
 func TestClient(t *testing.T) {
 	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		b, err := ioutil.ReadAll(r.Body)
+		b, err := io.ReadAll(r.Body)
 		if err != nil {
 			panic(err)
 		}

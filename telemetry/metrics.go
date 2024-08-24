@@ -20,6 +20,9 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
+	"log"
+	"strconv"
 	"time"
 
 	"github.com/99designs/gqlgen/graphql"
@@ -39,6 +42,8 @@ var (
 	resolverCompletedCounter *prometheus.CounterVec
 	timeToResolveField       *prometheus.HistogramVec
 	timeToHandleRequest      *prometheus.HistogramVec
+	staleProjectGauge        prometheus.Gauge
+	totalProjectGauge        prometheus.Gauge
 	ServerErrorCounter       prometheus.Counter
 	UserErrorCounter         prometheus.Counter
 )
@@ -62,6 +67,10 @@ func NewMetrics() graphql.HandlerExtension {
 func RegisterMetrics() {
 	if !registered {
 		RegisterOn(prometheus.DefaultRegisterer)
+		err := registerProjectJobs()
+		if err != nil {
+			log.Printf("Failed to register job for stale project metrics: %s", err.Error())
+		}
 		registered = true
 	}
 }
@@ -109,6 +118,17 @@ func RegisterOn(registerer prometheus.Registerer) {
 		Buckets: prometheus.ExponentialBuckets(1, 2, 11),
 	}, []string{"exitStatus"})
 
+	staleProjectGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "stale_projects_total",
+		Help: fmt.Sprintf("The total number of projects not accessed within the last %s days.",
+			strconv.FormatFloat(staleDuration.Hours()/24, 'f', -1, 64)),
+	})
+
+	totalProjectGauge = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "total_projects",
+		Help: "The total number of projects in the database.",
+	})
+
 	ServerErrorCounter = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "server_error_total",
@@ -130,6 +150,8 @@ func RegisterOn(registerer prometheus.Registerer) {
 		resolverCompletedCounter,
 		timeToResolveField,
 		timeToHandleRequest,
+		staleProjectGauge,
+		totalProjectGauge,
 		ServerErrorCounter,
 		UserErrorCounter,
 	)
@@ -149,6 +171,8 @@ func UnRegisterFrom(registerer prometheus.Registerer) {
 	registerer.Unregister(resolverCompletedCounter)
 	registerer.Unregister(timeToResolveField)
 	registerer.Unregister(timeToHandleRequest)
+	registerer.Unregister(staleProjectGauge)
+	registerer.Unregister(totalProjectGauge)
 	registerer.Unregister(ServerErrorCounter)
 	registerer.Unregister(UserErrorCounter)
 }
